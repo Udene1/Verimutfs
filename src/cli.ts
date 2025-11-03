@@ -13,6 +13,7 @@ import { VerimutNode } from './node-manager.js';
 import { loadConfig } from './config.js';
 import chalk from 'chalk';
 import figlet from 'figlet';
+import { createVNSCommand } from './cli/vns-commands.js';
 
 const program = new Command();
 
@@ -35,8 +36,13 @@ program
   .option('--no-api', 'Disable HTTP API server')
   .option('--data-dir <path>', 'Data storage directory', './verimut-data')
   .option('--profile <file>', 'Profile JSON file to publish on startup')
-  .option('--verbose', 'Enable verbose logging')
-  .parse(process.argv);
+  .option('--enable-vns', 'Enable Verimut Name Service (VNS)')
+  .option('--verbose', 'Enable verbose logging');
+
+// Add VNS subcommand
+program.addCommand(createVNSCommand());
+
+program.parse(process.argv);
 
 const options = program.opts();
 
