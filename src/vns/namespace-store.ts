@@ -38,6 +38,17 @@ const GENESIS_ROOT: VNSRegistration = {
 };
 
 /**
+ * VNS Delta message for P2P propagation
+ */
+export interface VNSDelta {
+  type: 'register' | 'update' | 'transfer' | 'expire';
+  entry: VNSNamespaceEntry;
+  merkleRoot: string;
+  peerId: string;
+  timestamp: number;
+}
+
+/**
  * VNS Namespace Store
  * Local-first storage with P2P sync capabilities
  */
@@ -61,6 +72,12 @@ export class VNSNamespaceStore {
   // Enable/disable flag
   private enabled: boolean;
 
+  // P2P sync callback (set by VerimutSync)
+  private syncCallback: ((delta: VNSDelta) => Promise<void>) | null = null;
+
+  // Local peer ID (for delta propagation)
+  private localPeerId: string = 'unknown';
+
   constructor(blockstore: Blockstore, log: VerimutLog | null, security?: VNSSecurity) {
     this.blockstore = blockstore;
     this.log = log;
@@ -69,6 +86,15 @@ export class VNSNamespaceStore {
     this.ownerIndex = new Map();
     this.merkleRoot = '';
     this.enabled = true;
+  }
+
+  /**
+   * Set the sync callback for delta propagation
+   */
+  setSyncCallback(callback: (delta: VNSDelta) => Promise<void>, peerId: string): void {
+    this.syncCallback = callback;
+    this.localPeerId = peerId;
+    console.log(`[VNS] Sync callback registered for peer ${peerId.slice(0, 16)}...`);
   }
 
   /**
@@ -212,6 +238,9 @@ export class VNSNamespaceStore {
       });
 
       console.log(`[VNS] Registered ${name} -> ${cid} (owner: ${registration.owner.slice(0, 16)}...)`);
+
+      // Propagate delta to peers
+      await this.triggerDeltaPropagation(existing ? 'update' : 'register', name);
 
       return { success: true, cid };
     } catch (e) {
@@ -362,6 +391,9 @@ export class VNSNamespaceStore {
 
       console.log(`[VNS] Transferred ${name} from ${entry.registration.owner.slice(0, 16)}... to ${newOwner.slice(0, 16)}...`);
 
+      // Propagate transfer delta to peers
+      await this.triggerDeltaPropagation('transfer', name);
+
       return { success: true };
     } catch (e) {
       const error = e instanceof Error ? e.message : 'Unknown error';
@@ -485,6 +517,143 @@ export class VNSNamespaceStore {
     } catch (e) {
       console.error('[VNS] Failed to import entry:', e);
       return false;
+    }
+  }
+
+  /**
+   * Propagate a delta to peers via VerimutSync
+   */
+  private async propagateDelta(type: VNSDelta['type'], entry: VNSNamespaceEntry): Promise<void> {
+    if (!this.syncCallback) {
+      console.log('[VNS] No sync callback registered, skipping delta propagation');
+      return;
+    }
+
+    try {
+      const delta: VNSDelta = {
+        type,
+        entry,
+        merkleRoot: this.merkleRoot,
+        peerId: this.localPeerId,
+        timestamp: Date.now()
+      };
+
+      await this.syncCallback(delta);
+      console.log(`[VNS] Propagated ${type} delta for ${entry.name}`);
+    } catch (e) {
+      console.error('[VNS] Failed to propagate delta:', e);
+    }
+  }
+
+  /**
+   * Apply an incoming delta from a peer
+   * Validates signature, PoW, and uses LWW for conflict resolution
+   */
+  async applyDelta(delta: VNSDelta, sourcePeerId: string): Promise<{ applied: boolean; error?: string }> {
+    try {
+      // Ignore our own deltas
+      if (delta.peerId === this.localPeerId) {
+        return { applied: false, error: 'Ignoring own delta' };
+      }
+
+      const entry = delta.entry;
+      const name = entry.name;
+
+      console.log(`[VNS] Received ${delta.type} delta for ${name} from ${sourcePeerId.slice(0, 16)}...`);
+
+      // Validate name format
+      const nameValidation = validateVNSName(name);
+      if (!nameValidation.valid) {
+        return { applied: false, error: `Invalid name: ${nameValidation.error}` };
+      }
+
+      // Validate registration signature and PoW
+      const securityValidation = this.security.validateRegistration(
+        entry.registration,
+        sourcePeerId
+      );
+      if (!securityValidation.valid) {
+        return { applied: false, error: `Security validation failed: ${securityValidation.error}` };
+      }
+
+      // Check if expired
+      if (this.security.isExpired(entry.registration.expires)) {
+        // Handle expiry
+        if (delta.type === 'expire') {
+          const existing = this.entries.get(name);
+          if (existing) {
+            this.entries.delete(name);
+            this.updateMerkleRoot();
+            
+            await this.logOperation({
+              operation: 'expire',
+              name,
+              owner: existing.registration.owner,
+              timestamp: Date.now(),
+              success: true
+            });
+
+            console.log(`[VNS] Expired ${name} via delta`);
+            return { applied: true };
+          }
+        }
+        return { applied: false, error: 'Entry has expired' };
+      }
+
+      // LWW conflict resolution
+      const existing = this.entries.get(name);
+      if (existing) {
+        // Only apply if newer
+        if (entry.lastModified <= existing.lastModified) {
+          console.log(`[VNS] Delta for ${name} is older (${entry.lastModified} <= ${existing.lastModified}), ignoring`);
+          return { applied: false, error: 'Older or equal timestamp (LWW)' };
+        }
+
+        // Check if it's a transfer
+        if (delta.type === 'transfer' && entry.registration.owner !== existing.registration.owner) {
+          console.log(`[VNS] Transfer detected: ${name} from ${existing.registration.owner.slice(0, 16)}... to ${entry.registration.owner.slice(0, 16)}...`);
+        }
+      }
+
+      // Apply the entry
+      this.entries.set(name, entry);
+      this.indexOwner(entry.registration.owner, name);
+      this.updateMerkleRoot();
+
+      // Log the operation
+      await this.logOperation({
+        operation: delta.type === 'expire' ? 'expire' : (existing ? 'update' : 'register'),
+        name,
+        owner: entry.registration.owner,
+        newOwner: delta.type === 'transfer' ? entry.registration.owner : undefined,
+        cid: entry.cid,
+        merkleRoot: this.merkleRoot,
+        timestamp: Date.now(),
+        success: true
+      });
+
+      console.log(`[VNS] Applied ${delta.type} delta for ${name} (version ${entry.version})`);
+
+      // Re-propagate if we're the new owner (helps with mesh convergence)
+      if (entry.registration.owner === this.localPeerId) {
+        await this.propagateDelta(delta.type, entry);
+      }
+
+      return { applied: true };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : 'Unknown error';
+      console.error('[VNS] Failed to apply delta:', error);
+      return { applied: false, error };
+    }
+  }
+
+  /**
+   * Trigger delta propagation after successful local operations
+   */
+  private async triggerDeltaPropagation(type: VNSDelta['type'], name: string): Promise<void> {
+    const entry = this.entries.get(name);
+    if (entry) {
+      await this.propagateDelta(type, entry);
     }
   }
 }

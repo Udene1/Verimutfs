@@ -164,17 +164,97 @@ export class VNSSignatureValidator {
 }
 
 /**
+ * ERC20 Stake Validator (Placeholder for MVP)
+ * TODO: Post-launch integration with blockchain
+ */
+export class VNSStakeValidator {
+  private minStakeAmount: number;
+  private simulatedBalances: Map<string, number>; // Local balance sim for MVP
+
+  constructor(minStakeAmount: number = 100) {
+    this.minStakeAmount = minStakeAmount;
+    this.simulatedBalances = new Map();
+    
+    // Pre-populate some test accounts for MVP
+    this.simulatedBalances.set('genesis', 1000000);
+    this.simulatedBalances.set('reserved', 1000000);
+  }
+
+  /**
+   * Check if owner has sufficient ERC20 stake
+   * MVP: Returns true (simulated local balance)
+   * POST-LAUNCH: Query blockchain contract via Web3/Ethers
+   */
+  checkERC20Stake(owner: string, amount: number = this.minStakeAmount): boolean {
+    // MVP: Simulate stake check
+    const balance = this.simulatedBalances.get(owner) || 0;
+    const hasStake = balance >= amount;
+    
+    console.log(`[VNS Stake] Simulated check for ${owner.slice(0, 16)}...: ${balance} tokens (min: ${amount}) -> ${hasStake ? 'PASS' : 'FAIL'}`);
+    
+    // TODO Post-Launch: Replace with actual blockchain query
+    // const web3 = new Web3(RPC_ENDPOINT);
+    // const contract = new web3.eth.Contract(ERC20_ABI, TOKEN_ADDRESS);
+    // const balance = await contract.methods.balanceOf(owner).call();
+    // return balance >= amount;
+    
+    return hasStake;
+  }
+
+  /**
+   * Set simulated balance for testing (MVP only)
+   */
+  setSimulatedBalance(owner: string, amount: number): void {
+    this.simulatedBalances.set(owner, amount);
+    console.log(`[VNS Stake] Simulated balance set for ${owner.slice(0, 16)}...: ${amount} tokens`);
+  }
+
+  /**
+   * Get minimum stake requirement
+   */
+  getMinStake(): number {
+    return this.minStakeAmount;
+  }
+}
+
+/**
  * Combined VNS security validator
  */
 export class VNSSecurity {
   private rateLimiter: VNSRateLimiter;
   private pow: VNSProofOfWork;
   private signatureValidator: VNSSignatureValidator;
+  private stakeValidator: VNSStakeValidator;
 
-  constructor(powDifficulty: number = VNS_CONFIG.POW_DIFFICULTY) {
+  constructor(powDifficulty: number = VNS_CONFIG.POW_DIFFICULTY, minStake: number = 100) {
     this.rateLimiter = new VNSRateLimiter();
     this.pow = new VNSProofOfWork(powDifficulty);
     this.signatureValidator = new VNSSignatureValidator();
+    this.stakeValidator = new VNSStakeValidator(minStake);
+  }
+
+  /**
+   * Validate anti-spam measures (modular for PoW or stake)
+   * Currently: PoW required, stake optional (MVP)
+   * Post-launch: Can switch to stake-only or hybrid
+   */
+  validateAntiSpam(registration: {
+    name: string;
+    owner: string;
+    nonce: number;
+  }): { valid: boolean; error?: string } {
+    // Primary: PoW validation
+    if (!this.pow.validate(registration.name, registration.owner, registration.nonce)) {
+      return { valid: false, error: `Proof-of-work failed (requires ${this.pow.getDifficulty()} leading zeros)` };
+    }
+
+    // Optional: Stake validation (MVP simulated, can enable for premium names)
+    // Uncomment post-launch for stake requirement:
+    // if (!this.stakeValidator.checkERC20Stake(registration.owner)) {
+    //   return { valid: false, error: 'Insufficient ERC20 stake' };
+    // }
+
+    return { valid: true };
   }
 
   /**
@@ -195,9 +275,10 @@ export class VNSSecurity {
       return { valid: false, error: 'Rate limit exceeded (5 registrations per hour)' };
     }
 
-    // Validate PoW
-    if (!this.pow.validate(registration.name, registration.owner, registration.nonce)) {
-      return { valid: false, error: `Proof-of-work failed (requires ${this.pow.getDifficulty()} leading zeros)` };
+    // Validate anti-spam (PoW + optional stake)
+    const antiSpamCheck = this.validateAntiSpam(registration);
+    if (!antiSpamCheck.valid) {
+      return antiSpamCheck;
     }
 
     // Validate signature
@@ -246,6 +327,20 @@ export class VNSSecurity {
   }
 
   /**
+   * Check ERC20 stake (MVP simulated)
+   */
+  checkStake(owner: string, amount?: number): boolean {
+    return this.stakeValidator.checkERC20Stake(owner, amount);
+  }
+
+  /**
+   * Set simulated stake balance (MVP testing only)
+   */
+  setSimulatedStake(owner: string, amount: number): void {
+    this.stakeValidator.setSimulatedBalance(owner, amount);
+  }
+
+  /**
    * Clean up old rate limit data
    */
   cleanup(): void {
@@ -257,5 +352,12 @@ export class VNSSecurity {
    */
   getPoWDifficulty(): number {
     return this.pow.getDifficulty();
+  }
+
+  /**
+   * Get stake validator for advanced usage
+   */
+  getStakeValidator(): VNSStakeValidator {
+    return this.stakeValidator;
   }
 }
