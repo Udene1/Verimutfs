@@ -42,14 +42,17 @@ program
 // Add VNS subcommand
 program.addCommand(createVNSCommand());
 
-program.parse(process.argv);
+// Add default action to start the node
+program.action(async (options) => {
+  await main(options);
+});
 
-const options = program.opts();
+program.parse(process.argv);
 
 /**
  * Main entry point
  */
-async function main() {
+async function main(options: any) {
   try {
     console.log(chalk.blue('🚀 Starting VerimutFS Node...\n'));
 
@@ -111,6 +114,3 @@ async function main() {
     process.exit(1);
   }
 }
-
-// Start the node
-main().catch(console.error);

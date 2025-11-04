@@ -8,6 +8,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { VNSNamespaceStore } from '../vns/namespace-store.js';
 import { VNSSecurity } from '../vns/security.js';
 import { VNSRegistration, VNS_CONFIG, normalizeVNSName } from '../types/vns-schema.js';
@@ -45,7 +46,6 @@ async function computePoWWithProgress(
     const tryNonce = () => {
       const nonce = attempt;
       const input = `${name}:${owner}:${nonce}`;
-      const crypto = require('crypto');
       const hash = crypto.createHash('sha256').update(input).digest('hex');
       const prefix = '0'.repeat(security.getPoWDifficulty());
 
