@@ -29,21 +29,29 @@ npm install && npm run build
 
 ### 4. Start Your Node
 
-**I'll send you the bootstrap peer URLs via Discord/Email.** Use them like this:
+**⚠️ IMPORTANT:** You need bootstrap peer URLs to join the network! Without them, your node runs isolated.
+
+**I'll send you the bootstrap URLs via Discord/Email.** They look like:
+```
+http://bootstrap1.verimut.com:3001
+http://123.45.67.89:3001
+```
 
 **Windows:**
 ```powershell
 $env:ENABLE_VNS="true"
-$env:HTTP_BOOTSTRAP_PEERS="http://PEER1_URL:3001,http://PEER2_URL:3001"
+$env:HTTP_BOOTSTRAP_PEERS="http://bootstrap1.example.com:3001,http://bootstrap2.example.com:3001"
 npm start
 ```
 
 **Mac/Linux:**
 ```bash
 export ENABLE_VNS=true
-export HTTP_BOOTSTRAP_PEERS="http://PEER1_URL:3001,http://PEER2_URL:3001"
+export HTTP_BOOTSTRAP_PEERS="http://bootstrap1.example.com:3001,http://bootstrap2.example.com:3001"
 npm start
 ```
+
+**Replace** the example URLs with the actual bootstrap peer URLs I provide!
 
 ### 5. Verify It's Working
 
@@ -162,9 +170,53 @@ Once we've validated the network with you and other friends:
 
 ---
 
-*Bootstrap Peer URLs (I'll send these separately):*
-- Node 1: `http://???:3001`
-- Node 2: `http://???:3001`
-- Node 3: `http://???:3001`
+## For Network Operators: Running a Bootstrap Node
 
-*Update: [DATE] - Network Status: [TESTING/STABLE/READY]*
+Want to run a bootstrap node that others can connect to?
+
+### Requirements:
+- Public server (VPS, cloud instance, or home with port forwarding)
+- Port 3001 open in firewall
+- Public IP or domain name
+
+### Quick Setup:
+
+**Linux/Mac:**
+```bash
+./setup-bootstrap.sh
+```
+
+**Windows:**
+```powershell
+.\setup-bootstrap.ps1
+```
+
+This will:
+1. Configure environment variables
+2. Show your public IP and bootstrap URL
+3. Start the node
+4. Display the URL to share with others
+
+### Manual Setup:
+
+```bash
+# On your public server:
+export ENABLE_VNS=true
+export API_PORT=3001
+npm start
+
+# Your bootstrap URL will be:
+# http://YOUR_PUBLIC_IP:3001
+```
+
+**Then share this URL** with friends who want to join your network!
+
+---
+
+*Bootstrap Peer URLs (I'll send these to you):*
+- Bootstrap Node 1: `http://???:3001`
+- Bootstrap Node 2: `http://???:3001`
+- Bootstrap Node 3: `http://???:3001`
+
+*Network Status: PRE-LAUNCH TESTING*  
+*Last Update: November 5, 2025*
