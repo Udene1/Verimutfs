@@ -647,6 +647,23 @@ export class VNSNamespaceStore {
   }
 
   /**
+   * List all entries (for API/bootstrap mesh sync)
+   */
+  listAll(): any[] {
+    return Array.from(this.entries.values()).map(entry => ({
+      name: entry.name,
+      owner: entry.registration.owner,
+      records: entry.registration.records,
+      timestamp: entry.registration.timestamp,
+      expires: entry.registration.expires,
+      nonce: entry.registration.nonce,
+      signature: entry.registration.signature,
+      publicKey: entry.registration.publicKey,
+      lastModified: entry.lastModified
+    }));
+  }
+
+  /**
    * Export all entries (for sync/backup)
    */
   exportEntries(): VNSNamespaceEntry[] {

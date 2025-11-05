@@ -1166,6 +1166,17 @@ export function createApiServer(options: ApiServerOptions): http.Server {
           return;
         }
 
+        // GET /api/vns/list - List all VNS entries (for bootstrap mesh sync)
+        if (path === '/api/vns/list' && req.method === 'GET') {
+          try {
+            const entries = vnsStore.listAll();
+            sendJson({ entries });
+          } catch (e: any) {
+            sendError(`Failed to list VNS entries: ${e.message}`, 500);
+          }
+          return;
+        }
+
         // GET /api/vns/status - VNS status and stats
         if (path === '/api/vns/status' && req.method === 'GET') {
           try {
