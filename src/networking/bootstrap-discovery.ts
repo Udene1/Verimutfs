@@ -183,13 +183,14 @@ export async function registerAsBootstrap(
   try {
     log(`${prefix} Registering as bootstrap: ${vnsName} → ${publicUrl}`);
 
-    // Register via local VNS API
+    // Register via local VNS API (using correct VNS format)
     const response = await fetch(`${vnsApi}/api/vns/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: vnsName,
-        value: {
+        owner: 'bootstrap-node',
+        records: {
           endpoint: publicUrl,
           type: 'bootstrap',
           timestamp: Date.now()
