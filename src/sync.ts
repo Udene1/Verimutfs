@@ -97,7 +97,7 @@ export class VerimutSync {
         const vnsApi = `http://localhost:${port}`;
         // Wait for VNS to initialize
         setTimeout(async () => {
-          await registerAsBootstrap('bootstrap.vns', publicUrl, vnsApi);
+          await registerAsBootstrap('bootstrap-node', publicUrl, vnsApi);
         }, 3000);
       }
     } catch (error) {

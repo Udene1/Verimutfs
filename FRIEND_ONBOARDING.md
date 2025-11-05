@@ -34,14 +34,14 @@ npm install && npm run build
 **Windows:**
 ```powershell
 $env:ENABLE_VNS="true"
-$env:HTTP_BOOTSTRAP_PEERS="bootstrap.vns"
+$env:HTTP_BOOTSTRAP_PEERS="bootstrap-node"
 npm start
 ```
 
 **Mac/Linux:**
 ```bash
 export ENABLE_VNS=true
-export HTTP_BOOTSTRAP_PEERS="bootstrap.vns"
+export HTTP_BOOTSTRAP_PEERS="bootstrap-node"
 npm start
 ```
 
@@ -50,7 +50,7 @@ npm start
 - ✅ Connect to the entire network mesh
 - ✅ Start syncing VNS entries
 
-**How it works:** The `bootstrap.vns` name resolves to all registered bootstrap nodes in the network. No manual URL sharing needed!
+**How it works:** The `bootstrap-node` name resolves to all registered bootstrap nodes in the network. No manual URL sharing needed!
 
 ---
 

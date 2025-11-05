@@ -1,12 +1,12 @@
 # Genesis Bootstrap Node Setup (PowerShell)
 # This script helps you deploy the first bootstrap node (genesis) for the Verimut network
 
-Write-Host "🚀 Verimut Genesis Bootstrap Node Setup" -ForegroundColor Cyan
+Write-Host "Verimut Genesis Bootstrap Node Setup" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Detect public IP
-Write-Host "📡 Detecting your public IP address..." -ForegroundColor Yellow
+Write-Host "Detecting your public IP address..." -ForegroundColor Yellow
 try {
     $PUBLIC_IP = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
 } catch {
@@ -18,32 +18,32 @@ try {
 }
 
 if (-not $PUBLIC_IP) {
-    Write-Host "⚠️  Could not auto-detect public IP" -ForegroundColor Yellow
+    Write-Host "WARNING: Could not auto-detect public IP" -ForegroundColor Yellow
     $PUBLIC_IP = Read-Host "Enter your public IP or domain"
 }
 
-Write-Host "✅ Public IP/Domain: $PUBLIC_IP" -ForegroundColor Green
+Write-Host "Public IP/Domain: $PUBLIC_IP" -ForegroundColor Green
 Write-Host ""
 
 # Port configuration
 $API_PORT = if ($env:API_PORT) { $env:API_PORT } else { "3001" }
-Write-Host "📍 API Port: $API_PORT" -ForegroundColor Cyan
+Write-Host "API Port: $API_PORT" -ForegroundColor Cyan
 Write-Host ""
 
 # Build public URL
 $PUBLIC_URL = "http://${PUBLIC_IP}:${API_PORT}"
-Write-Host "🌐 Your bootstrap URL will be: $PUBLIC_URL" -ForegroundColor Cyan
+Write-Host "Your bootstrap URL will be: $PUBLIC_URL" -ForegroundColor Cyan
 Write-Host ""
 
 # Check if this is truly genesis
-Write-Host "❓ Is this the FIRST bootstrap node (genesis)?" -ForegroundColor Yellow
+Write-Host "Is this the FIRST bootstrap node (genesis)?" -ForegroundColor Yellow
 Write-Host "   - Yes: This is the first node starting the network"
 Write-Host "   - No: There are other bootstrap nodes you want to connect to"
 $IS_GENESIS = Read-Host "Is this genesis? (y/n)"
 
 if ($IS_GENESIS -match "^[Yy]") {
     Write-Host ""
-    Write-Host "✅ Starting as GENESIS bootstrap node" -ForegroundColor Green
+    Write-Host "Starting as GENESIS bootstrap node" -ForegroundColor Green
     Write-Host "   - No other bootstraps to connect to"
     Write-Host "   - Will self-register as bootstrap.vns"
     Write-Host "   - Other nodes can discover you via bootstrap.vns"
@@ -55,7 +55,7 @@ if ($IS_GENESIS -match "^[Yy]") {
     $env:API_PORT = $API_PORT
 } else {
     Write-Host ""
-    Write-Host "🔗 This is a SECONDARY bootstrap node" -ForegroundColor Cyan
+    Write-Host "This is a SECONDARY bootstrap node" -ForegroundColor Cyan
     Write-Host "   You need to connect to existing bootstraps"
     Write-Host ""
     Write-Host "Choose discovery method:"
@@ -65,7 +65,7 @@ if ($IS_GENESIS -match "^[Yy]") {
     
     if ($DISCOVERY_METHOD -eq "1") {
         Write-Host ""
-        Write-Host "✅ Using VNS auto-discovery" -ForegroundColor Green
+        Write-Host "Using VNS auto-discovery" -ForegroundColor Green
         $env:HTTP_BOOTSTRAP_PEERS = "bootstrap.vns"
     } else {
         Write-Host ""
@@ -80,14 +80,14 @@ if ($IS_GENESIS -match "^[Yy]") {
     $env:API_PORT = $API_PORT
     
     Write-Host ""
-    Write-Host "✅ Configuration:" -ForegroundColor Green
+    Write-Host "Configuration:" -ForegroundColor Green
     Write-Host "   - Will connect to: $($env:HTTP_BOOTSTRAP_PEERS)"
     Write-Host "   - Will register as: bootstrap.vns"
     Write-Host "   - Will be discoverable at: $PUBLIC_URL"
 }
 
 Write-Host ""
-Write-Host "🔐 Important Security Notes:" -ForegroundColor Yellow
+Write-Host "Important Security Notes:" -ForegroundColor Yellow
 Write-Host "   1. Ensure port $API_PORT is open in your firewall"
 Write-Host "   2. Consider using HTTPS in production (not HTTP)"
 Write-Host "   3. This bootstrap URL will be shared with all network participants"
@@ -97,6 +97,6 @@ Read-Host "Press Enter to start the node, or Ctrl+C to cancel"
 Write-Host ""
 
 # Start the node
-Write-Host "🚀 Starting Verimut Bootstrap Node..." -ForegroundColor Cyan
+Write-Host "Starting Verimut Bootstrap Node..." -ForegroundColor Cyan
 Write-Host ""
 npm start

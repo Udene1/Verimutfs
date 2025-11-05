@@ -69,13 +69,14 @@ export function parseBootstrapConfig(envVar: string): {
   // Check for VNS discovery trigger
   const vnsEntry = parts.find(p => 
     p.startsWith('seed:') || 
+    p === 'bootstrap-node' ||
     (p.endsWith('.vns') && !p.startsWith('http'))
   );
   
   if (vnsEntry) {
     const vnsName = vnsEntry.startsWith('seed:') 
       ? vnsEntry.substring(5) 
-      : vnsEntry;
+      : (vnsEntry === 'bootstrap-node' ? 'bootstrap-node' : vnsEntry);
     
     return {
       staticPeers: parts.filter(p => p.startsWith('http')),
@@ -168,7 +169,7 @@ export async function discoverBootstrapPeers(
 /**
  * Register this node as a bootstrap peer in VNS
  * 
- * @param vnsName - VNS name to register under (e.g., "bootstrap.vns")
+ * @param vnsName - VNS name to register under (e.g., "bootstrap-node")
  * @param publicUrl - Public URL for this bootstrap node
  * @param vnsApi - Local VNS API base URL
  * @returns Success status
