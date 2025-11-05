@@ -90,11 +90,11 @@ services:
       - verimutfs
 
 volumes:
-  genesis-data:
   bs2-data:
   bs3-data:
   peer1-data:
   peer2-data:
+  peer3-data:
 
 networks:
   verimutfs:
