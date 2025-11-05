@@ -1,12 +1,19 @@
-# VerimutFS Node# VerimutFS P2P Node
+# VerimutFS P2P Node
 
+🌐 **Join the Verimut decentralized skill-sharing network!**
 
+Core peer-to-peer node implementing encrypted profile storage, DHT-based indexing, and proximity search for the Verimut skill-sharing platform.
 
-🌐 **Join the Verimut decentralized skill-sharing network!**Core peer-to-peer node implementing encrypted profile storage, DHT-based indexing, and proximity search for the Verimut skill-sharing platform.
+## 👥 Friend Testing (Pre-Launch)
 
+**Invited to test the network?** See **[FRIEND_ONBOARDING.md](./FRIEND_ONBOARDING.md)** - 5 minute setup to join!
 
+## Features
 
-VerimutFS is a peer-to-peer node that connects you to the Verimut platform - a privacy-first, decentralized network for connecting skill providers with those who need them.## 🏗️ Architecture
+- **Verimut Name Service (VNS)**: Decentralized DNS with Ed25519 + PoW security
+- **HTTP P2P Module**: Multi-node sync via clean HTTP-based delta propagation
+- **Encrypted Profiles**: IPFS storage with crypto-secure data
+- **DHT Indexing**: Fast proximity search for skills and services## 🏗️ Architecture
 
 
 
