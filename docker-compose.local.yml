@@ -1,29 +1,17 @@
-# Quick Local Test Network
+# Connect Real Peers to Your Live Genesis Bootstrap
+# 
+# Your genesis bootstrap: http://102.90.98.234:3001
 # 
 # Run: docker-compose -f docker-compose.local.yml up
 # 
-# Creates:
-# - 1 genesis bootstrap (port 3001)
-# - 2 additional bootstraps (ports 3002, 3003)
-# - 2 peers with promotion (ports 3004, 3005)
+# Creates 5 REAL nodes that connect to YOUR live network:
+# - 2 additional bootstraps (ports 3002, 3003) - will replicate with your genesis
+# - 3 peers (ports 3004, 3005, 3006) - will sync via VNS discovery
 
 version: '3.8'
 
 services:
-  genesis:
-    build: .
-    container_name: verimutfs-genesis
-    ports:
-      - "3001:3001"
-    environment:
-      - ENABLE_VNS=true
-      - BOOTSTRAP_PUBLIC_URL=http://host.docker.internal:3001
-      - VERBOSE=true
-    volumes:
-      - genesis-data:/data
-    networks:
-      - verimutfs
-
+  # Bootstrap 2 - Joins your live network, replicates data
   bootstrap-2:
     build: .
     container_name: verimutfs-bs2
@@ -38,9 +26,8 @@ services:
       - bs2-data:/data
     networks:
       - verimutfs
-    depends_on:
-      - genesis
 
+  # Bootstrap 3 - Another real bootstrap joining your network
   bootstrap-3:
     build: .
     container_name: verimutfs-bs3
@@ -55,9 +42,8 @@ services:
       - bs3-data:/data
     networks:
       - verimutfs
-    depends_on:
-      - genesis
 
+  # Peer 1 - Real peer with promotion capability
   peer-1:
     build: .
     container_name: verimutfs-peer1
@@ -72,9 +58,8 @@ services:
       - peer1-data:/data
     networks:
       - verimutfs
-    depends_on:
-      - genesis
 
+  # Peer 2 - Real peer with promotion capability
   peer-2:
     build: .
     container_name: verimutfs-peer2
@@ -89,8 +74,20 @@ services:
       - peer2-data:/data
     networks:
       - verimutfs
-    depends_on:
-      - genesis
+
+  # Peer 3 - Basic peer (no promotion)
+  peer-3:
+    build: .
+    container_name: verimutfs-peer3
+    ports:
+      - "3006:3001"
+    environment:
+      - ENABLE_VNS=true
+      - HTTP_BOOTSTRAP_PEERS=bootstrap-node
+    volumes:
+      - peer3-data:/data
+    networks:
+      - verimutfs
 
 volumes:
   genesis-data:
