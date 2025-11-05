@@ -1,0 +1,104 @@
+# Quick Local Test Network
+# 
+# Run: docker-compose -f docker-compose.local.yml up
+# 
+# Creates:
+# - 1 genesis bootstrap (port 3001)
+# - 2 additional bootstraps (ports 3002, 3003)
+# - 2 peers with promotion (ports 3004, 3005)
+
+version: '3.8'
+
+services:
+  genesis:
+    build: .
+    container_name: verimutfs-genesis
+    ports:
+      - "3001:3001"
+    environment:
+      - ENABLE_VNS=true
+      - BOOTSTRAP_PUBLIC_URL=http://host.docker.internal:3001
+      - VERBOSE=true
+    volumes:
+      - genesis-data:/data
+    networks:
+      - verimutfs
+
+  bootstrap-2:
+    build: .
+    container_name: verimutfs-bs2
+    ports:
+      - "3002:3001"
+    environment:
+      - ENABLE_VNS=true
+      - HTTP_BOOTSTRAP_PEERS=bootstrap-node
+      - BOOTSTRAP_PUBLIC_URL=http://host.docker.internal:3002
+      - VERBOSE=true
+    volumes:
+      - bs2-data:/data
+    networks:
+      - verimutfs
+    depends_on:
+      - genesis
+
+  bootstrap-3:
+    build: .
+    container_name: verimutfs-bs3
+    ports:
+      - "3003:3001"
+    environment:
+      - ENABLE_VNS=true
+      - HTTP_BOOTSTRAP_PEERS=bootstrap-node
+      - BOOTSTRAP_PUBLIC_URL=http://host.docker.internal:3003
+      - VERBOSE=true
+    volumes:
+      - bs3-data:/data
+    networks:
+      - verimutfs
+    depends_on:
+      - genesis
+
+  peer-1:
+    build: .
+    container_name: verimutfs-peer1
+    ports:
+      - "3004:3001"
+    environment:
+      - ENABLE_VNS=true
+      - HTTP_BOOTSTRAP_PEERS=bootstrap-node
+      - BOOTSTRAP_PUBLIC_URL=http://host.docker.internal:3004
+      - ENABLE_PEER_PROMOTION=true
+    volumes:
+      - peer1-data:/data
+    networks:
+      - verimutfs
+    depends_on:
+      - genesis
+
+  peer-2:
+    build: .
+    container_name: verimutfs-peer2
+    ports:
+      - "3005:3001"
+    environment:
+      - ENABLE_VNS=true
+      - HTTP_BOOTSTRAP_PEERS=bootstrap-node
+      - BOOTSTRAP_PUBLIC_URL=http://host.docker.internal:3005
+      - ENABLE_PEER_PROMOTION=true
+    volumes:
+      - peer2-data:/data
+    networks:
+      - verimutfs
+    depends_on:
+      - genesis
+
+volumes:
+  genesis-data:
+  bs2-data:
+  bs3-data:
+  peer1-data:
+  peer2-data:
+
+networks:
+  verimutfs:
+    driver: bridge
