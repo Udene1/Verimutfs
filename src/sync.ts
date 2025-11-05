@@ -1,6 +1,8 @@
 import { pipe } from 'it-pipe';
 import type { VerimutLogEntry } from './log.js';
 import { createHTTPP2P, parseBootstrapPeers, type HTTPP2P } from './networking/http-p2p.js';
+import { BootstrapMeshSync } from './networking/bootstrap-mesh-sync.js';
+import { PeerPromotionSystem } from './networking/peer-promotion.js';
 
 /**
  * VerimutSync: a minimal sync protocol that publishes local heads via gossipsub
@@ -30,6 +32,10 @@ export class VerimutSync {
   vnsStore: any | null;
   // HTTP-based P2P module for VNS delta propagation
   httpP2P: HTTPP2P | null;
+  // Bootstrap mesh sync for content replication
+  meshSync: BootstrapMeshSync | null;
+  // Peer promotion system for self-healing
+  peerPromotion: PeerPromotionSystem | null;
 
   constructor(libp2p: any, blockstore: any, log: any, dbName: string) {
     this.libp2p = libp2p;
@@ -49,6 +55,8 @@ export class VerimutSync {
     // HTTP P2P will be initialized after bootstrap discovery
     // This is now deferred to start() so we can use async bootstrap discovery
     this.httpP2P = null;
+    this.meshSync = null;
+    this.peerPromotion = null;
   }
 
   /**
@@ -92,6 +100,8 @@ export class VerimutSync {
       
       // Self-register as bootstrap if BOOTSTRAP_PUBLIC_URL is set
       const publicUrl = process.env.BOOTSTRAP_PUBLIC_URL;
+      const isBootstrap = !!publicUrl;
+      
       if (publicUrl) {
         const port = process.env.API_PORT || '3001';
         const vnsApi = `http://localhost:${port}`;
@@ -99,6 +109,43 @@ export class VerimutSync {
         setTimeout(async () => {
           await registerAsBootstrap('bootstrap-node', publicUrl, vnsApi);
         }, 3000);
+        
+        // Start bootstrap mesh sync (for VNS + content replication)
+        this.meshSync = new BootstrapMeshSync({
+          syncInterval: 60000, // 1 minute
+          bootstrapPattern: 'bootstrap-node',
+          verbose: process.env.VERBOSE === 'true',
+          vnsApiUrl: vnsApi
+        });
+        
+        setTimeout(() => {
+          if (this.meshSync) {
+            this.meshSync.start(this);
+            console.log('[VerimutSync] Bootstrap mesh sync enabled');
+          }
+        }, 5000); // Start after VNS registration
+      }
+      
+      // Initialize peer promotion (for regular peers)
+      if (!isBootstrap && bootstrapPeers.length > 0 && publicUrl) {
+        this.peerPromotion = new PeerPromotionSystem({
+          enabled: process.env.ENABLE_PEER_PROMOTION !== 'false',
+          healthCheckInterval: 30000, // 30 seconds
+          failureThreshold: 3,
+          minPeersForPromotion: 2,
+          publicUrl: publicUrl,
+          verbose: process.env.VERBOSE === 'true'
+        });
+        
+        setTimeout(() => {
+          if (this.peerPromotion) {
+            const getPeerCount = () => {
+              return this.libp2p?.getPeers?.()?.length || 0;
+            };
+            this.peerPromotion.start(bootstrapPeers, getPeerCount);
+            console.log('[VerimutSync] Peer promotion system enabled');
+          }
+        }, 5000);
       }
     } catch (error) {
       console.warn('[VerimutSync] Bootstrap discovery failed, falling back to direct config:', error);
@@ -179,6 +226,16 @@ export class VerimutSync {
     if (!this.running) return;
     this.running = false;
     try {
+      // Stop mesh sync and peer promotion
+      if (this.meshSync) {
+        this.meshSync.stop();
+        this.meshSync = null;
+      }
+      if (this.peerPromotion) {
+        this.peerPromotion.stop();
+        this.peerPromotion = null;
+      }
+      
       if (this.pubsub && typeof this.pubsub.unsubscribe === 'function') {
         await this.pubsub.unsubscribe(this.topic);
         try {

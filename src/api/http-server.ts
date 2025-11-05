@@ -228,6 +228,47 @@ export function createApiServer(options: ApiServerOptions): http.Server {
         return;
       }
 
+      // Block manifest endpoint (for bootstrap mesh sync)
+      if (path === '/api/blocks/manifest' && req.method === 'GET') {
+        try {
+          // List all block CIDs in the blockstore
+          const blocks: string[] = [];
+          for await (const cid of nodeBundle.helia.blockstore.keys()) {
+            blocks.push(cid.toString());
+          }
+          sendJson({ blocks });
+        } catch (e: any) {
+          sendError(`Failed to list blocks: ${e.message}`, 500);
+        }
+        return;
+      }
+
+      // Block retrieval endpoint (for bootstrap mesh sync)
+      if (path.match(/^\/api\/blocks\/[^\/]+$/) && req.method === 'GET') {
+        const cidStr = path.split('/').pop();
+        if (!cidStr) {
+          sendError('Missing CID', 400);
+          return;
+        }
+        
+        try {
+          const { CID } = await import('multiformats/cid');
+          const cid = CID.parse(cidStr);
+          const block = await nodeBundle.helia.blockstore.get(cid);
+          
+          // Send raw block bytes
+          res.writeHead(200, {
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': block.length,
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.end(block);
+        } catch (e: any) {
+          sendError(`Block not found: ${e.message}`, 404);
+        }
+        return;
+      }
+
       // Profile endpoints
       if (path === '/api/profile' && req.method === 'GET') {
         const address = url.searchParams.get('address');
