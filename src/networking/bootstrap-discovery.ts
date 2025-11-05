@@ -215,9 +215,17 @@ export async function registerAsBootstrap(
   try {
     log(`${prefix} Registering as bootstrap: ${vnsName} → ${publicUrl}`);
 
+    // Generate Ed25519 keypair for signing
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519', {
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+    });
+
     // Compute proof-of-work nonce
+    // Note: VNS automatically adds .vfs suffix, so compute PoW with that
     const owner = 'bootstrap-node';
-    const nonce = await computeProofOfWork(vnsName, owner);
+    const normalizedName = vnsName.endsWith('.vfs') ? vnsName : `${vnsName}.vfs`;
+    const nonce = await computeProofOfWork(normalizedName, owner);
     
     if (nonce === null) {
       log(`${prefix} ✗ Failed to compute proof-of-work`);
@@ -225,32 +233,59 @@ export async function registerAsBootstrap(
     }
 
     log(`${prefix} Computed PoW nonce: ${nonce}`);
+    
+    // Verify locally before sending (with normalized name)
+    const testInput = `${normalizedName}:${owner}:${nonce}`;
+    const testHash = crypto.createHash('sha256').update(testInput).digest('hex');
+    log(`${prefix} Local PoW verification: ${testHash.substring(0, 10)} (valid: ${testHash.startsWith('000')}) for "${normalizedName}"`);
+    
+    if (!testHash.startsWith('000')) {
+      log(`${prefix} ✗ Local PoW validation failed! This shouldn't happen.`);
+      return false;
+    }
 
-    // Create proper VNS registration
+    // Prepare registration data with signature
     const timestamp = Date.now();
     const expires = timestamp + (365 * 24 * 60 * 60 * 1000); // 1 year
-    
-    const registration = {
-      name: vnsName,
+    const records = [
+      {
+        type: 'TXT',
+        value: publicUrl,
+        ttl: 3600
+      }
+    ];
+
+    // Create canonical JSON for signing (matching VNS serializeForSigning format)
+    const canonical = {
+      name: normalizedName,
       owner: owner,
-      nonce: nonce,
+      records: records,
       timestamp: timestamp,
       expires: expires,
-      records: [
-        {
-          type: 'TXT',
-          value: publicUrl
-        }
-      ],
-      signature: 'bootstrap-auto-register', // Bootstrap nodes don't require signature
-      publicKey: 'bootstrap-node'
+      nonce: nonce
     };
+    const signaturePayload = JSON.stringify(canonical);
+    
+    // Sign the registration data
+    const privateKeyObject = crypto.createPrivateKey(privateKey);
+    const dataBuffer = Buffer.from(signaturePayload, 'utf8');
+    const signatureBuffer = crypto.sign(null, dataBuffer, privateKeyObject);
+    const signature = signatureBuffer.toString('base64');
 
-    // Register via local VNS API
+    // Register via local VNS API (using correct VNS format with PoW)
     const response = await fetch(`${vnsApi}/api/vns/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(registration)
+      body: JSON.stringify({
+        name: vnsName,
+        owner: owner,
+        nonce: nonce,
+        records: records,
+        timestamp: timestamp,
+        expires: expires,
+        signature: signature,
+        publicKey: publicKey
+      })
     });
 
     if (!response.ok) {

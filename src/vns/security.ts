@@ -84,9 +84,17 @@ export class VNSProofOfWork {
     const input = `${name}:${owner}:${nonce}`;
     const hash = crypto.createHash('sha256').update(input).digest('hex');
     
+    // Debug logging
+    console.log(`[VNS PoW] Validating: name="${name}", owner="${owner}", nonce=${nonce} (type: ${typeof nonce})`);
+    console.log(`[VNS PoW] Input: "${input}"`);
+    console.log(`[VNS PoW] Hash: ${hash.substring(0, 10)}...`);
+    console.log(`[VNS PoW] Required difficulty: ${this.difficulty} zeros`);
+    
     // Check for required leading zeros
     const prefix = '0'.repeat(this.difficulty);
-    return hash.startsWith(prefix);
+    const isValid = hash.startsWith(prefix);
+    console.log(`[VNS PoW] Valid: ${isValid}`);
+    return isValid;
   }
 
   /**
