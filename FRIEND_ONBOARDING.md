@@ -29,29 +29,48 @@ npm install && npm run build
 
 ### 4. Start Your Node
 
-**⚠️ IMPORTANT:** You need bootstrap peer URLs to join the network! Without them, your node runs isolated.
-
-**I'll send you the bootstrap URLs via Discord/Email.** They look like:
-```
-http://bootstrap1.verimut.com:3001
-http://123.45.67.89:3001
-```
+**Super simple now!** Just use this one-line config:
 
 **Windows:**
 ```powershell
 $env:ENABLE_VNS="true"
-$env:HTTP_BOOTSTRAP_PEERS="http://bootstrap1.example.com:3001,http://bootstrap2.example.com:3001"
+$env:HTTP_BOOTSTRAP_PEERS="bootstrap.vns"
 npm start
 ```
 
 **Mac/Linux:**
 ```bash
 export ENABLE_VNS=true
-export HTTP_BOOTSTRAP_PEERS="http://bootstrap1.example.com:3001,http://bootstrap2.example.com:3001"
+export HTTP_BOOTSTRAP_PEERS="bootstrap.vns"
 npm start
 ```
 
-**Replace** the example URLs with the actual bootstrap peer URLs I provide!
+**That's it!** Your node will automatically:
+- ✅ Discover all active bootstrap nodes via VNS
+- ✅ Connect to the entire network mesh
+- ✅ Start syncing VNS entries
+
+**How it works:** The `bootstrap.vns` name resolves to all registered bootstrap nodes in the network. No manual URL sharing needed!
+
+---
+
+**Alternative: Static URLs (if I provide specific IPs)**
+
+If I send you specific bootstrap URLs via Discord/Email, you can also use them directly:
+
+**Windows:**
+```powershell
+$env:ENABLE_VNS="true"
+$env:HTTP_BOOTSTRAP_PEERS="http://1.2.3.4:3001,http://5.6.7.8:3001"
+npm start
+```
+
+**Mac/Linux:**
+```bash
+export ENABLE_VNS=true
+export HTTP_BOOTSTRAP_PEERS="http://1.2.3.4:3001,http://5.6.7.8:3001"
+npm start
+```
 
 ### 5. Verify It's Working
 

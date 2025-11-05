@@ -46,19 +46,9 @@ export class VerimutSync {
     this.totalFetches = 0;
     this.vnsStore = null;
     
-    // Initialize HTTP P2P module
-    const bootstrapPeers = parseBootstrapPeers(process.env.HTTP_BOOTSTRAP_PEERS);
-    this.httpP2P = bootstrapPeers.length > 0 
-      ? createHTTPP2P({ 
-          bootstrapPeers, 
-          peerId: libp2p?.peerId,
-          verbose: process.env.VERBOSE === 'true'
-        })
-      : null;
-    
-    if (this.httpP2P) {
-      console.log(`[VerimutSync] HTTP P2P initialized with ${bootstrapPeers.length} bootstrap peer(s)`);
-    }
+    // HTTP P2P will be initialized after bootstrap discovery
+    // This is now deferred to start() so we can use async bootstrap discovery
+    this.httpP2P = null;
   }
 
   /**
@@ -79,6 +69,52 @@ export class VerimutSync {
   async start() {
     if (this.running) return;
     this.running = true;
+
+    // Initialize HTTP P2P with bootstrap discovery
+    try {
+      const { expandBootstrapPeers, registerAsBootstrap } = await import('./networking/bootstrap-discovery.js');
+      
+      const envVar = process.env.HTTP_BOOTSTRAP_PEERS || '';
+      const bootstrapPeers = await expandBootstrapPeers(envVar, {
+        seedBootstraps: ['http://seed.verimut.com:3001'], // TODO: Update with your genesis node
+        verbose: process.env.VERBOSE === 'true'
+      });
+      
+      if (bootstrapPeers.length > 0) {
+        const { createHTTPP2P } = await import('./networking/http-p2p.js');
+        this.httpP2P = createHTTPP2P({
+          bootstrapPeers,
+          peerId: this.libp2p?.peerId,
+          verbose: process.env.VERBOSE === 'true'
+        });
+        console.log(`[VerimutSync] HTTP P2P initialized with ${bootstrapPeers.length} bootstrap peer(s)`);
+      }
+      
+      // Self-register as bootstrap if BOOTSTRAP_PUBLIC_URL is set
+      const publicUrl = process.env.BOOTSTRAP_PUBLIC_URL;
+      if (publicUrl) {
+        const port = process.env.API_PORT || '3001';
+        const vnsApi = `http://localhost:${port}`;
+        // Wait for VNS to initialize
+        setTimeout(async () => {
+          await registerAsBootstrap('bootstrap.vns', publicUrl, vnsApi);
+        }, 3000);
+      }
+    } catch (error) {
+      console.warn('[VerimutSync] Bootstrap discovery failed, falling back to direct config:', error);
+      // Fallback to direct parseBootstrapPeers if discovery fails
+      const { parseBootstrapPeers } = await import('./networking/http-p2p.js');
+      const { createHTTPP2P } = await import('./networking/http-p2p.js');
+      const bootstrapPeers = parseBootstrapPeers(process.env.HTTP_BOOTSTRAP_PEERS || '');
+      if (bootstrapPeers.length > 0) {
+        this.httpP2P = createHTTPP2P({
+          bootstrapPeers,
+          peerId: this.libp2p?.peerId,
+          verbose: process.env.VERBOSE === 'true'
+        });
+        console.log(`[VerimutSync] HTTP P2P initialized with ${bootstrapPeers.length} bootstrap peer(s) (fallback)`);
+      }
+    }
 
     // subscribe to log updates to publish heads
     if (this.log && this.log.events && typeof this.log.events.on === 'function') {

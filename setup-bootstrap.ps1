@@ -8,8 +8,10 @@ $env:ENABLE_VNS = "true"
 $env:API_PORT = "3001"
 $env:VERBOSE = "true"
 
-# Optional: Connect to other bootstrap nodes
-# $env:HTTP_BOOTSTRAP_PEERS = "http://other-bootstrap:3001"
+# ⚠️ IMPORTANT: Connect to other bootstrap nodes to form unified network!
+# If you have multiple bootstrap nodes, list them here:
+# $env:HTTP_BOOTSTRAP_PEERS = "http://bootstrap2:3001,http://bootstrap3:3001"
+# Without this, your bootstrap forms an isolated network!
 
 # Get public IP
 try {
