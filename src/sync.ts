@@ -83,8 +83,9 @@ export class VerimutSync {
       const { expandBootstrapPeers, registerAsBootstrap } = await import('./networking/bootstrap-discovery.js');
       
       const envVar = process.env.HTTP_BOOTSTRAP_PEERS || '';
+      const seedBootstrap = process.env.SEED_BOOTSTRAP || 'http://102.90.98.234:3001';
       const bootstrapPeers = await expandBootstrapPeers(envVar, {
-        seedBootstraps: ['http://102.90.98.234:3001'], // Genesis bootstrap node
+        seedBootstraps: [seedBootstrap], // Genesis bootstrap node (configurable for Docker)
         verbose: process.env.VERBOSE === 'true'
       });
       

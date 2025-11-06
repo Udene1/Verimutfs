@@ -20,6 +20,7 @@ services:
     environment:
       - ENABLE_VNS=true
       - HTTP_BOOTSTRAP_PEERS=bootstrap-node
+      - SEED_BOOTSTRAP=http://host.docker.internal:3001
       - BOOTSTRAP_PUBLIC_URL=http://host.docker.internal:3002
       - VERBOSE=true
     volumes:
@@ -36,6 +37,7 @@ services:
     environment:
       - ENABLE_VNS=true
       - HTTP_BOOTSTRAP_PEERS=bootstrap-node
+      - SEED_BOOTSTRAP=http://host.docker.internal:3001
       - BOOTSTRAP_PUBLIC_URL=http://host.docker.internal:3003
       - VERBOSE=true
     volumes:
@@ -52,6 +54,7 @@ services:
     environment:
       - ENABLE_VNS=true
       - HTTP_BOOTSTRAP_PEERS=bootstrap-node
+      - SEED_BOOTSTRAP=http://host.docker.internal:3001
       - BOOTSTRAP_PUBLIC_URL=http://host.docker.internal:3004
       - ENABLE_PEER_PROMOTION=true
     volumes:
@@ -68,6 +71,7 @@ services:
     environment:
       - ENABLE_VNS=true
       - HTTP_BOOTSTRAP_PEERS=bootstrap-node
+      - SEED_BOOTSTRAP=http://host.docker.internal:3001
       - BOOTSTRAP_PUBLIC_URL=http://host.docker.internal:3005
       - ENABLE_PEER_PROMOTION=true
     volumes:
@@ -84,6 +88,7 @@ services:
     environment:
       - ENABLE_VNS=true
       - HTTP_BOOTSTRAP_PEERS=bootstrap-node
+      - SEED_BOOTSTRAP=http://host.docker.internal:3001
     volumes:
       - peer3-data:/data
     networks:
