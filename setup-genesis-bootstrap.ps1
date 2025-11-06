@@ -45,8 +45,8 @@ if ($IS_GENESIS -match "^[Yy]") {
     Write-Host ""
     Write-Host "Starting as GENESIS bootstrap node" -ForegroundColor Green
     Write-Host "   - No other bootstraps to connect to"
-    Write-Host "   - Will self-register as bootstrap.vns"
-    Write-Host "   - Other nodes can discover you via bootstrap.vns"
+    Write-Host "   - Will self-register as bootstrap-node.vfs"
+    Write-Host "   - Other nodes can discover you via VNS"
     Write-Host ""
     
     $env:ENABLE_VNS = "true"
@@ -59,14 +59,14 @@ if ($IS_GENESIS -match "^[Yy]") {
     Write-Host "   You need to connect to existing bootstraps"
     Write-Host ""
     Write-Host "Choose discovery method:"
-    Write-Host "  1) Auto-discover via bootstrap.vns (recommended)"
+    Write-Host "  1) Auto-discover via VNS (recommended)"
     Write-Host "  2) Manually specify bootstrap URLs"
     $DISCOVERY_METHOD = Read-Host "Enter choice (1 or 2)"
     
     if ($DISCOVERY_METHOD -eq "1") {
         Write-Host ""
         Write-Host "Using VNS auto-discovery" -ForegroundColor Green
-        $env:HTTP_BOOTSTRAP_PEERS = "bootstrap.vns"
+        $env:HTTP_BOOTSTRAP_PEERS = "bootstrap-node"
     } else {
         Write-Host ""
         Write-Host "Enter bootstrap peer URLs (comma-separated):"
@@ -82,7 +82,7 @@ if ($IS_GENESIS -match "^[Yy]") {
     Write-Host ""
     Write-Host "Configuration:" -ForegroundColor Green
     Write-Host "   - Will connect to: $($env:HTTP_BOOTSTRAP_PEERS)"
-    Write-Host "   - Will register as: bootstrap.vns"
+    Write-Host "   - Will register as: bootstrap-node.vfs"
     Write-Host "   - Will be discoverable at: $PUBLIC_URL"
 }
 

@@ -29,12 +29,15 @@ npm install && npm run build
 
 ### 4. Start Your Node
 
-**Super simple now!** Just use this one-line config:
+**🌟 PURE VNS - NO IP SHARING NEEDED!**
+
+I'll give you ONE seed IP to bootstrap from. After that, everything uses VNS names!
 
 **Windows:**
 ```powershell
 $env:ENABLE_VNS="true"
 $env:HTTP_BOOTSTRAP_PEERS="bootstrap-node"
+$env:SEED_BOOTSTRAP="http://102.90.98.234:3001"
 npm start
 ```
 
@@ -42,35 +45,21 @@ npm start
 ```bash
 export ENABLE_VNS=true
 export HTTP_BOOTSTRAP_PEERS="bootstrap-node"
+export SEED_BOOTSTRAP="http://102.90.98.234:3001"
 npm start
 ```
 
-**That's it!** Your node will automatically:
-- ✅ Discover all active bootstrap nodes via VNS
-- ✅ Connect to the entire network mesh
-- ✅ Start syncing VNS entries
+**What happens:**
+1. ✅ Your node queries the seed to resolve `bootstrap-node.vfs` via VNS
+2. ✅ VNS returns ALL registered bootstrap URLs automatically
+3. ✅ Your node connects to the entire network mesh
+4. ✅ Starts syncing VNS entries from all bootstraps
 
-**How it works:** The `bootstrap-node` name resolves to all registered bootstrap nodes in the network. No manual URL sharing needed!
+**Magic part:** The `bootstrap-node` name is shared by ALL bootstrap nodes in the network. When one goes down, VNS automatically returns the others. No central point of failure!
 
 ---
 
-**Alternative: Static URLs (if I provide specific IPs)**
-
-If I send you specific bootstrap URLs via Discord/Email, you can also use them directly:
-
-**Windows:**
-```powershell
-$env:ENABLE_VNS="true"
-$env:HTTP_BOOTSTRAP_PEERS="http://1.2.3.4:3001,http://5.6.7.8:3001"
-npm start
-```
-
-**Mac/Linux:**
-```bash
-export ENABLE_VNS=true
-export HTTP_BOOTSTRAP_PEERS="http://1.2.3.4:3001,http://5.6.7.8:3001"
-npm start
-```
+**Note:** The seed IP (`http://102.90.98.234:3001`) is ONLY used for the first VNS query. After that, everything runs on pure VNS names. This is true decentralization! 🚀
 
 ### 5. Verify It's Working
 
@@ -97,18 +86,23 @@ You should see something like:
 ## What to Watch For
 
 ### Good Signs ✅
-- Terminal shows: `[HTTPP2P] Initialized with N bootstrap peer(s)`
-- You see: `[VerimutSync] HTTP P2P initialized with N bootstrap peer(s)`
-- Periodic sync messages appear
+- Terminal shows: `[BootstrapDiscovery] Discovering bootstrap peers via VNS name: bootstrap-node`
+- You see: `[VerimutSync] HTTP P2P initialized with N bootstrap peer(s)` (N should be 1 or more)
+- Log shows: `[VerimutSync] ✓ Bootstrap registration complete` (if you're running a bootstrap)
+- Bootstrap mesh sync logs: `[BootstrapMesh] Discovered X bootstrap(s) in VNS`
+- Periodic sync messages appear every 60 seconds
 - VNS entry count increases over time
 - `/api/vns/status` returns valid merkle root
+- No errors about "Failed to sync VNS with..."
 
 ### Issues to Report ❌
 - Node crashes or hangs
-- HTTP P2P push failures
-- Entry counts don't match other nodes
-- Merkle root inconsistencies
-- High CPU/memory usage
+- Errors: "Failed to sync VNS with bootstrap-node.vfs"
+- VNS discovery fails to find any bootstraps
+- Entry counts don't match other nodes after several sync cycles
+- Merkle root inconsistencies between nodes
+- High CPU/memory usage (>500MB RAM or >10% CPU is unusual)
+- Bootstrap mesh sync not running when it should be
 
 ## Feedback We Need
 
@@ -137,14 +131,13 @@ After running for a while (few hours minimum), please share:
    - Home/office/cloud network?
    - Internet speed?
 
-## Sharing Your Node (Optional)
+## Want to Run a Bootstrap Node? (Optional - Advanced)
 
-Want to be a bootstrap peer for others? You'll need to:
-1. Open port 3001 in your router/firewall
-2. Get your public IP or set up a domain
-3. Share your URL: `http://YOUR_IP:3001`
+Help strengthen the network by running a public bootstrap node! See the **"For Network Operators"** section below.
 
-**Security note:** HTTP is unencrypted. Don't share sensitive data via VNS during testing.
+**Key benefit:** Your bootstrap automatically joins the mesh and replicates all VNS data. When other bootstraps go offline, yours keeps the network alive!
+
+**Security note:** HTTP is unencrypted. Don't share sensitive data via VNS during testing. HTTPS/TLS coming in future releases.
 
 ## Common Issues
 
@@ -191,51 +184,84 @@ Once we've validated the network with you and other friends:
 
 ## For Network Operators: Running a Bootstrap Node
 
-Want to run a bootstrap node that others can connect to?
+Want to help strengthen the network by running a bootstrap node?
 
 ### Requirements:
 - Public server (VPS, cloud instance, or home with port forwarding)
 - Port 3001 open in firewall
 - Public IP or domain name
+- Stable internet connection (bootstrap nodes should stay online)
 
-### Quick Setup:
-
-**Linux/Mac:**
-```bash
-./setup-bootstrap.sh
-```
+### Easy Setup (Recommended):
 
 **Windows:**
 ```powershell
-.\setup-bootstrap.ps1
+.\setup-genesis-bootstrap.ps1
 ```
 
-This will:
-1. Configure environment variables
-2. Show your public IP and bootstrap URL
-3. Start the node
-4. Display the URL to share with others
+**Linux/Mac:**
+```bash
+./setup-genesis-bootstrap.sh
+```
+
+The script will:
+- Auto-detect your public IP
+- Ask if you're genesis or secondary bootstrap
+- Configure all environment variables
+- Start your node
 
 ### Manual Setup:
 
-```bash
-# On your public server:
-export ENABLE_VNS=true
-export API_PORT=3001
+**Windows:**
+```powershell
+# Set your public URL (this gets registered as bootstrap-node.vfs)
+$env:BOOTSTRAP_PUBLIC_URL="http://YOUR_PUBLIC_IP:3001"
+$env:SEED_BOOTSTRAP="http://102.90.98.234:3001"
+$env:HTTP_BOOTSTRAP_PEERS="bootstrap-node"
+$env:ENABLE_VNS="true"
 npm start
-
-# Your bootstrap URL will be:
-# http://YOUR_PUBLIC_IP:3001
 ```
 
-**Then share this URL** with friends who want to join your network!
+**Linux/Mac:**
+```bash
+export BOOTSTRAP_PUBLIC_URL="http://YOUR_PUBLIC_IP:3001"
+export SEED_BOOTSTRAP="http://102.90.98.234:3001"
+export HTTP_BOOTSTRAP_PEERS="bootstrap-node"
+export ENABLE_VNS=true
+npm start
+```
+
+**What happens:**
+1. ✅ Your node registers as `bootstrap-node.vfs` in VNS
+2. ✅ Bootstrap mesh sync discovers other bootstraps automatically
+3. ✅ All VNS entries + content blocks replicate to your node every 60s
+4. ✅ You become part of the self-healing bootstrap mesh!
+
+**No need to share your IP!** Peers discover you automatically via `bootstrap-node.vfs` 🚀
 
 ---
 
-*Bootstrap Peer URLs (I'll send these to you):*
-- Bootstrap Node 1: `http://???:3001`
-- Bootstrap Node 2: `http://???:3001`
-- Bootstrap Node 3: `http://???:3001`
+## 🌐 Network Information
 
-*Network Status: PRE-LAUNCH TESTING*  
-*Last Update: November 5, 2025*
+**Seed Bootstrap (for first-time VNS query only):**
+```
+http://102.90.98.234:3001
+```
+
+**VNS Bootstrap Name (this is what everyone uses):**
+```
+bootstrap-node.vfs
+```
+
+**How it works:**
+- All bootstrap nodes register under the same VNS name: `bootstrap-node.vfs`
+- When you query any bootstrap for `bootstrap-node.vfs`, you get ALL bootstrap URLs
+- Pure decentralized discovery - no hardcoded IPs in your config after initial seed!
+
+**Current Network Status:**
+- 🟢 Genesis Node: ONLINE (`http://102.90.98.234:3001`)
+- 🔄 Bootstrap Mesh Sync: ACTIVE (60s intervals)
+- 📡 VNS Propagation: ENABLED
+- 🚀 Status: **PRE-LAUNCH TESTING**
+
+*Last Update: November 6, 2025*

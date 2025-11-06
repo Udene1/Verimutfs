@@ -20,6 +20,8 @@ export interface BootstrapMeshConfig {
   verbose?: boolean;
   /** Local VNS API endpoint */
   vnsApiUrl?: string;
+  /** Public URL for this bootstrap (to skip self-sync) */
+  publicUrl?: string;
 }
 
 interface BootstrapPeer {
@@ -40,7 +42,8 @@ export class BootstrapMeshSync {
       syncInterval: config.syncInterval ?? 60000, // 1 minute default
       bootstrapPattern: config.bootstrapPattern ?? 'bootstrap-node',
       verbose: config.verbose ?? false,
-      vnsApiUrl: config.vnsApiUrl ?? 'http://localhost:3001'
+      vnsApiUrl: config.vnsApiUrl ?? 'http://localhost:3001',
+      publicUrl: config.publicUrl ?? ''
     };
   }
 
@@ -119,9 +122,15 @@ export class BootstrapMeshSync {
       );
 
       // Update discovered bootstraps
+      let selfCount = 0;
+      let peerCount = 0;
+      
       for (const entry of bootstraps) {
         const txtRecord = entry.records?.find((r: any) => r.type === 'TXT');
         if (txtRecord && txtRecord.value) {
+          // Check if this is our own URL
+          const isSelf = txtRecord.value === this.config.vnsApiUrl;
+          
           const existing = this.discoveredBootstraps.get(entry.name);
           this.discoveredBootstraps.set(entry.name, {
             name: entry.name,
@@ -129,10 +138,16 @@ export class BootstrapMeshSync {
             lastSeen: Date.now(),
             online: existing?.online ?? true
           });
+          
+          if (isSelf) {
+            selfCount++;
+          } else {
+            peerCount++;
+          }
         }
       }
 
-      this.log(`Discovered ${this.discoveredBootstraps.size} bootstrap peer(s)`);
+      this.log(`Discovered ${this.discoveredBootstraps.size} bootstrap(s) in VNS (${peerCount} peer(s), ${selfCount} self)`);
     } catch (e: any) {
       console.error('[BootstrapMesh] Bootstrap discovery failed:', e.message);
     }
@@ -151,6 +166,14 @@ export class BootstrapMeshSync {
 
     for (const [name, bootstrap] of this.discoveredBootstraps) {
       try {
+        // Skip if this is our own URL (self-sync)
+        // Check both local VNS API URL and public URL
+        if (bootstrap.url === this.config.vnsApiUrl || 
+            (this.config.publicUrl && bootstrap.url === this.config.publicUrl)) {
+          this.log(`Skipping self-sync with ${name} (${bootstrap.url})`);
+          continue;
+        }
+
         // Fetch their VNS entries
         const response = await fetch(`${bootstrap.url}/api/vns/list`, {
           signal: AbortSignal.timeout(5000)

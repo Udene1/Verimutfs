@@ -83,9 +83,8 @@ export class VerimutSync {
       const { expandBootstrapPeers, registerAsBootstrap } = await import('./networking/bootstrap-discovery.js');
       
       const envVar = process.env.HTTP_BOOTSTRAP_PEERS || '';
-      const seedBootstrap = process.env.SEED_BOOTSTRAP || 'http://102.90.98.234:3001';
       const bootstrapPeers = await expandBootstrapPeers(envVar, {
-        seedBootstraps: [seedBootstrap], // Genesis bootstrap node (configurable for Docker)
+        seedBootstraps: [], // No hardcoded seeds
         verbose: process.env.VERBOSE === 'true'
       });
       
@@ -116,7 +115,8 @@ export class VerimutSync {
           syncInterval: 60000, // 1 minute
           bootstrapPattern: 'bootstrap-node',
           verbose: process.env.VERBOSE === 'true',
-          vnsApiUrl: vnsApi
+          vnsApiUrl: vnsApi,
+          publicUrl: publicUrl  // Pass public URL to skip self-sync
         });
         
         setTimeout(() => {
