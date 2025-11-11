@@ -1,6 +1,6 @@
 {
   "name": "verimutfs-node",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "VerimutFS P2P Node - Join the Verimut decentralized skill-sharing network",
   "main": "dist/cli.js",
@@ -41,6 +41,8 @@
     "@libp2p/peer-id-factory": "^4.2.4",
     "@libp2p/tcp": "11.0.7",
     "@libp2p/yamux": "8.0.1",
+    "@noble/hashes": "^2.0.1",
+    "@noble/post-quantum": "^0.5.2",
     "chalk": "^5.3.0",
     "commander": "^11.1.0",
     "dotenv": "^16.3.1",
