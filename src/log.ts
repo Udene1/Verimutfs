@@ -31,10 +31,11 @@ export class VerimutLog {
     const ts = Date.now();
     const payload = JSON.stringify({ value, author: author ?? this.identity?.peerId?.toString?.() ?? author, ts });
     let signature: string | undefined = undefined;
-    if (this.identity && this.identity.signingKeyPem) {
-      signature = signData(this.identity.signingKeyPem, payload);
+    if (this.identity && this.identity.privateKey) {
+      const signatureBytes = await signData(new TextEncoder().encode(payload), this.identity.privateKey);
+      signature = Buffer.from(signatureBytes).toString('hex');
     }
-    const wrapped = { payload: JSON.parse(payload), signature, pubkey: this.identity?.publicKeyPem };
+    const wrapped = { payload: JSON.parse(payload), signature, pubkey: this.identity?.publicKey };
     const block = Buffer.from(JSON.stringify(wrapped));
     const cid = await this.blocks.put(block);
     const entry = { cid, value, author: wrapped.payload.author, ts };
@@ -63,7 +64,7 @@ export class VerimutLog {
       const pubkey = wrapped.pubkey;
       // verify signature if present
       if (signature && pubkey) {
-        const ok = verifySignature(pubkey, payloadJson, signature);
+        const ok = await verifySignature(new TextEncoder().encode(payloadJson), new TextEncoder().encode(signature), pubkey);
         if (!ok) {
           console.warn(`VerimutLog.applyCid: signature verification failed for ${cid}`);
           return false;

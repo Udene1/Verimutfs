@@ -83,13 +83,13 @@ export class VNSProofOfWork {
   validate(name: string, owner: string, nonce: number): boolean {
     const input = `${name}:${owner}:${nonce}`;
     const hash = crypto.createHash('sha256').update(input).digest('hex');
-    
+
     // Debug logging
     console.log(`[VNS PoW] Validating: name="${name}", owner="${owner}", nonce=${nonce} (type: ${typeof nonce})`);
     console.log(`[VNS PoW] Input: "${input}"`);
     console.log(`[VNS PoW] Hash: ${hash.substring(0, 10)}...`);
     console.log(`[VNS PoW] Required difficulty: ${this.difficulty} zeros`);
-    
+
     // Check for required leading zeros
     const prefix = '0'.repeat(this.difficulty);
     const isValid = hash.startsWith(prefix);
@@ -133,9 +133,11 @@ export class VNSSignatureValidator {
    * Validate the signature on a VNS registration
    * Returns true if signature is valid and matches the owner
    */
-  validate(data: string, signature: string, publicKey: string): boolean {
+  async validate(data: string, signature: string, publicKey: string): Promise<boolean> {
     try {
-      return verifySignature(publicKey, data, signature);
+      const sigBytes = new TextEncoder().encode(signature);
+      const dataBytes = new TextEncoder().encode(data);
+      return await verifySignature(dataBytes, sigBytes, publicKey);
     } catch (e) {
       console.error('VNS signature validation error:', e);
       return false;
@@ -182,7 +184,7 @@ export class VNSStakeValidator {
   constructor(minStakeAmount: number = 100) {
     this.minStakeAmount = minStakeAmount;
     this.simulatedBalances = new Map();
-    
+
     // Pre-populate some test accounts for MVP
     this.simulatedBalances.set('genesis', 1000000);
     this.simulatedBalances.set('reserved', 1000000);
@@ -197,15 +199,15 @@ export class VNSStakeValidator {
     // MVP: Simulate stake check
     const balance = this.simulatedBalances.get(owner) || 0;
     const hasStake = balance >= amount;
-    
+
     console.log(`[VNS Stake] Simulated check for ${owner.slice(0, 16)}...: ${balance} tokens (min: ${amount}) -> ${hasStake ? 'PASS' : 'FAIL'}`);
-    
+
     // TODO Post-Launch: Replace with actual blockchain query
     // const web3 = new Web3(RPC_ENDPOINT);
     // const contract = new web3.eth.Contract(ERC20_ABI, TOKEN_ADDRESS);
     // const balance = await contract.methods.balanceOf(owner).call();
     // return balance >= amount;
-    
+
     return hasStake;
   }
 
@@ -268,7 +270,7 @@ export class VNSSecurity {
   /**
    * Validate a complete VNS registration
    */
-  validateRegistration(registration: {
+  async validateRegistration(registration: {
     name: string;
     owner: string;
     records: any[];
@@ -277,7 +279,7 @@ export class VNSSecurity {
     nonce: number;
     signature: string;
     publicKey?: string;
-  }, peerId: string): { valid: boolean; error?: string } {
+  }, peerId: string): Promise<{ valid: boolean; error?: string }> {
     // Check rate limit
     if (!this.rateLimiter.checkLimit(peerId)) {
       return { valid: false, error: 'Rate limit exceeded (5 registrations per hour)' };
@@ -294,7 +296,8 @@ export class VNSSecurity {
     if (!registration.publicKey) {
       return { valid: false, error: 'Missing public key for signature verification' };
     }
-    if (!this.signatureValidator.validate(dataToSign, registration.signature, registration.publicKey)) {
+    const sigValid = await this.signatureValidator.validate(dataToSign, registration.signature, registration.publicKey);
+    if (!sigValid) {
       return { valid: false, error: 'Invalid signature' };
     }
 

@@ -32,7 +32,7 @@ export class VerimutNode {
     }
 
     // Create the node bundle (libp2p + helia + all services)
-    this.nodeBundle = await createNode(this.config.bootstrapPeers);
+    this.nodeBundle = await createNode();
 
     // Start API server if port is configured
     if (this.config.apiPort && this.nodeBundle) {
@@ -61,7 +61,7 @@ export class VerimutNode {
 
     // Stop node
     if (this.nodeBundle) {
-      await stopNode(this.nodeBundle);
+      await stopNode();
       this.nodeBundle = null;
     }
   }
@@ -104,7 +104,7 @@ export class VerimutNode {
     }
 
     const profileData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    
+
     // TODO: Implement profile publishing through the verimut bundle
     // This would use this.nodeBundle.verimut to publish the profile
     console.log('Profile loaded:', profileData.publicProfile?.skillHashes?.length || 0, 'skills');

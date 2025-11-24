@@ -56,19 +56,19 @@ export class VNSNamespaceStore {
   private blockstore: Blockstore;
   private log: VerimutLog | null;
   private security: VNSSecurity;
-  
+
   // In-memory cache: name -> entry
   private entries: Map<string, VNSNamespaceEntry>;
-  
+
   // Reverse index: owner -> names[]
   private ownerIndex: Map<string, string[]>;
-  
+
   // Merkle root for integrity
   private merkleRoot: string;
-  
+
   // Store path in blockstore
   private readonly storePath = '/vns/root';
-  
+
   // Enable/disable flag
   private enabled: boolean;
 
@@ -102,7 +102,7 @@ export class VNSNamespaceStore {
     this.syncCallback = callback;
     this.localPeerId = peerId;
     console.log(`[VNS] Sync callback registered for peer ${peerId.slice(0, 16)}...`);
-    
+
     // Replay any queued deltas
     if (this.deltaQueue.length > 0) {
       setTimeout(async () => {
@@ -178,10 +178,10 @@ export class VNSNamespaceStore {
       // Check if expired
       if (entry.registration.expires < now) {
         console.log(`[VNS] Removing expired name: ${name} (expired at ${new Date(entry.registration.expires).toISOString()})`);
-        
+
         // Remove from cache
         this.entries.delete(name);
-        
+
         // Remove from owner index
         const owner = entry.registration.owner;
         const ownerNames = this.ownerIndex.get(owner);
@@ -196,7 +196,7 @@ export class VNSNamespaceStore {
 
         // Propagate expiry to peers
         await this.triggerDeltaPropagation('expire', name);
-        
+
         removed++;
       }
     }
@@ -204,10 +204,10 @@ export class VNSNamespaceStore {
     if (removed > 0) {
       // Update merkle root
       this.updateMerkleRoot();
-      
+
       // Persist changes
       await this.saveToBlockstore();
-      
+
       console.log(`[VNS] Expiry sweep completed: removed ${removed} expired names`);
     } else {
       console.log('[VNS] Expiry sweep completed: no expired names found');
@@ -237,7 +237,7 @@ export class VNSNamespaceStore {
    */
   private async loadReservedNames(): Promise<void> {
     const reservedNames = ['admin.vfs', 'sync.vfs', 'bootstrap.vfs'];
-    
+
     for (const name of reservedNames) {
       const entry: VNSNamespaceEntry = {
         name,
@@ -268,7 +268,7 @@ export class VNSNamespaceStore {
       // For now, we store the manifest CID in memory or a known location
       // In a production system, this would be in a well-known DHT key or config
       const manifestCidKey = '__vns_manifest_cid__';
-      
+
       // Try to get the manifest CID (this is a hack for now - would use DHT in production)
       // For Phase 3, we'll skip actual persistence and note it as TODO
       console.log('[VNS] Blockstore persistence TODO: Implement DHT-based manifest discovery');
@@ -280,7 +280,7 @@ export class VNSNamespaceStore {
       // 2. Load manifest from that CID
       // 3. Load all entry CIDs from manifest
       // 4. Reconstruct namespace in memory
-      
+
     } catch (e) {
       console.warn('[VNS] Failed to load from blockstore:', e);
     }
@@ -318,9 +318,9 @@ export class VNSNamespaceStore {
       const manifestCid = await this.blockstore.put(manifestData);
 
       console.log(`[VNS] Saved ${entryCids.length} entries to blockstore, manifest CID: ${manifestCid}`);
-      
+
       // TODO Phase 3.1: Publish manifest CID to DHT at /vns/manifest
-      
+
       return manifestCid;
     } catch (e) {
       console.error('[VNS] Failed to save to blockstore:', e);
@@ -348,7 +348,7 @@ export class VNSNamespaceStore {
       }
 
       // Check security (PoW, rate limit, signature)
-      const securityValidation = this.security.validateRegistration(registration, peerId);
+      const securityValidation = await this.security.validateRegistration(registration, peerId);
       if (!securityValidation.valid) {
         return { success: false, error: securityValidation.error };
       }
@@ -360,7 +360,7 @@ export class VNSNamespaceStore {
         if (registration.timestamp <= existing.registration.timestamp) {
           return { success: false, error: 'Name already registered with newer timestamp' };
         }
-        
+
         console.log(`[VNS] Updating existing registration for ${name} (LWW)`);
       }
 
@@ -406,7 +406,7 @@ export class VNSNamespaceStore {
     } catch (e) {
       const error = e instanceof Error ? e.message : 'Unknown error';
       console.error('[VNS] Registration failed:', error);
-      
+
       // Log failed operation
       await this.logOperation({
         operation: 'register',
@@ -484,7 +484,7 @@ export class VNSNamespaceStore {
     } catch (e) {
       const error = e instanceof Error ? e.message : 'Unknown error';
       console.error('[VNS] Resolution failed:', error);
-      
+
       return {
         found: false,
         error
@@ -611,7 +611,7 @@ export class VNSNamespaceStore {
     const cids = Array.from(this.entries.values())
       .map(e => e.cid)
       .sort();
-    
+
     const combined = cids.join(':');
     this.merkleRoot = crypto.createHash('sha256')
       .update(combined)
@@ -733,10 +733,10 @@ export class VNSNamespaceStore {
     }
 
     console.log(`[VNS] Replaying ${this.deltaQueue.length} queued deltas...`);
-    
+
     const queue = [...this.deltaQueue];
     this.deltaQueue = [];
-    
+
     let replayed = 0;
     for (const delta of queue) {
       try {
@@ -786,7 +786,7 @@ export class VNSNamespaceStore {
       }
 
       // Validate registration signature and PoW
-      const securityValidation = this.security.validateRegistration(
+      const securityValidation = await this.security.validateRegistration(
         entry.registration,
         sourcePeerId
       );
@@ -802,7 +802,7 @@ export class VNSNamespaceStore {
           if (existing) {
             this.entries.delete(name);
             this.updateMerkleRoot();
-            
+
             await this.logOperation({
               operation: 'expire',
               name,

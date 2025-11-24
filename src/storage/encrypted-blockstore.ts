@@ -42,15 +42,15 @@ export class EncryptedBlockstore {
     }
 
     try {
-      // Convert Uint8Array to base64 string for encryption
-      const plaintext = Buffer.from(value).toString('base64');
-      
+      // Get encryption key as Uint8Array
+      const keyBytes = new Uint8Array(Buffer.from(this.encryptionKey, 'base64'));
+
       // Encrypt the block data
-      const encrypted = encryptSymmetric(plaintext, this.encryptionKey);
-      
+      const encrypted = await encryptSymmetric(value, keyBytes);
+
       // Serialize encrypted data to JSON
       const encryptedBytes = Buffer.from(JSON.stringify(encrypted), 'utf8');
-      
+
       // Store encrypted data with original CID
       await this.inner.put(key, encryptedBytes);
     } catch (error) {
@@ -66,16 +66,26 @@ export class EncryptedBlockstore {
     try {
       // Retrieve encrypted block
       const encryptedBytes = await this.inner.get(key);
-      
-      // Parse encrypted data
+
+      // Parse encrypted data (convert structure back)
       const encryptedStr = Buffer.from(encryptedBytes).toString('utf8');
-      const encrypted: EncryptedData = JSON.parse(encryptedStr);
-      
+      const encryptedData: any = JSON.parse(encryptedStr);
+
+      // Convert back to EncryptedData format
+      const encrypted: EncryptedData = {
+        ciphertext: new Uint8Array(encryptedData.ciphertext || []),
+        nonce: new Uint8Array(encryptedData.nonce || []),
+        tag: encryptedData.tag ? new Uint8Array(encryptedData.tag) : undefined
+      };
+
+      // Get key as Uint8Array
+      const keyBytes = new Uint8Array(Buffer.from(this.encryptionKey, 'base64'));
+
       // Decrypt the block data
-      const plaintext = decryptSymmetric(encrypted, this.encryptionKey);
-      
-      // Convert base64 back to Uint8Array
-      return Buffer.from(plaintext, 'base64');
+      const plaintext = await decryptSymmetric(encrypted, keyBytes);
+
+      // Return decrypted Uint8Array
+      return plaintext;
     } catch (error) {
       throw new Error(`Failed to decrypt block ${key.toString()}: ${error}`);
     }
@@ -118,7 +128,7 @@ export class EncryptedBlockstore {
   getInnerBlockstore(): Blockstore {
     return this.inner;
   }
-  
+
   /**
    * Pass through all other blockstore methods to inner blockstore
    */
@@ -154,6 +164,6 @@ export function createNodeEncryptedBlockstore(
   const key = crypto.createHash('sha256')
     .update('verimut-node-encryption-' + nodeId)
     .digest('base64');
-  
+
   return new EncryptedBlockstore(blockstore, key, enabled);
 }

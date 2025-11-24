@@ -1,5 +1,6 @@
 import type { Libp2p } from '@libp2p/interface';
-import type { DHTIndexer } from '../indexing/dht-index.js';
+// DHT indexer not yet implemented - using placeholder
+type DHTIndexer = any;
 import {
   geohashEncode,
   geohashDecode,
@@ -116,10 +117,10 @@ export class QueryEngine {
       results = results.map(result => {
         const resultGeo = geohashDecode(result.geolocation.geohash);
         const distance = calculateDistance(
-          centerGeo.lat,
-          centerGeo.lng,
-          resultGeo.lat,
-          resultGeo.lng
+          centerGeo.latitude,
+          centerGeo.longitude,
+          resultGeo.latitude,
+          resultGeo.longitude
         );
 
         return { ...result, distance };
@@ -213,17 +214,17 @@ export class QueryEngine {
     // Note: In full implementation, you'd need to:
     // 1. Maintain a mapping of hashedPeerId → actualPeerId
     // 2. For now, this assumes we store that mapping in DHT values
-    
+
     // Parallel profile fetching for speed
     const fetchPromises = hashedPeerIds.map(async (hashedPeerId) => {
       try {
         // TODO: Unhash peer ID (requires reverse lookup or storing plaintext peerId in DHT)
         // For now, this is a placeholder showing the flow
-        
+
         // const peerId = await this._unhashPeerId(hashedPeerId);
         // const profile = await profileProtocol.requestPublicProfile(peerId);
         // return profile;
-        
+
         return null; // Placeholder
       } catch (error) {
         logger.error(`Failed to fetch profile for ${hashedPeerId}:`, error);
@@ -358,10 +359,9 @@ export class QueryEngine {
    */
   static calculateGeohash(lat: number, lng: number, precision: number = 5): GeolocationData {
     return {
-      geohash: geohashEncode(lat, lng, precision),
-      precision,
-      lat,
-      lng,
+      latitude: lat,
+      longitude: lng,
+      geohash: geohashEncode(lat, lng, precision)
     };
   }
 
@@ -371,6 +371,6 @@ export class QueryEngine {
   static distanceBetweenGeohashes(geohash1: string, geohash2: string): number {
     const geo1 = geohashDecode(geohash1);
     const geo2 = geohashDecode(geohash2);
-    return calculateDistance(geo1.lat, geo1.lng, geo2.lat, geo2.lng);
+    return calculateDistance(geo1.latitude, geo1.longitude, geo2.latitude, geo2.longitude);
   }
 }

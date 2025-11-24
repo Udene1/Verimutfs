@@ -23,22 +23,22 @@ export async function bootstrapNode(isDemo: boolean = false) {
       const m = bp.match(/ip4\/([^/]+)\/tcp\/(\d+)/);
       const host = m ? m[1] : '127.0.0.1';
       const port = m ? parseInt(m[2]) : listenPort;
-  const shim = await import('./demo-pubsub-shim.js');
+      const shim = await import('./demo-pubsub-shim.js');
       pubsub = await shim.createDemoShimAsClient(host, port);
       // create Helia for storage only
-      const storageBundle = await createNode(cfg.bootstrapPeers);
+      const storageBundle = await createNode();
       libp2p = storageBundle.libp2p;
       bundle = { libp2p, helia: storageBundle.helia, fs: storageBundle.fs, pubsub };
     } else {
-  const shim = await import('./demo-pubsub-shim.js');
+      const shim = await import('./demo-pubsub-shim.js');
       const serverShim = await shim.createDemoShimAsServer(listenPort);
       // Helia for storage (not used for pubsub here)
-      const storageBundle = await createNode(cfg.bootstrapPeers);
+      const storageBundle = await createNode();
       libp2p = storageBundle.libp2p;
       bundle = { libp2p, helia: storageBundle.helia, fs: storageBundle.fs, pubsub: serverShim };
     }
   } else {
-    bundle = await createNode(cfg.bootstrapPeers);
+    bundle = await createNode();
   }
 
   const libp2p: any = bundle.libp2p;
@@ -59,7 +59,7 @@ export async function bootstrapNode(isDemo: boolean = false) {
       console.warn('Failed to dial bootstrap peer', p, err);
     }
   }
-  console.log(`Bootstrapped to ${success}/${(cfg.bootstrapPeers||[]).length} peers`);
+  console.log(`Bootstrapped to ${success}/${(cfg.bootstrapPeers || []).length} peers`);
 
   // Heartbeat publisher
   setInterval(async () => {
@@ -164,7 +164,7 @@ export async function shutdownNode(libp2pOrBundle: any) {
     if (libp2pOrBundle && typeof libp2pOrBundle.libp2p !== 'undefined') {
       // If this bundle used the standalone libp2p helper, stop it explicitly
       try { if (libp2pOrBundle.libp2p && typeof libp2pOrBundle.libp2p.stop === 'function') await libp2pOrBundle.libp2p.stop(); } catch (e) { /* ignore */ }
-      await stopNode(libp2pOrBundle);
+      await stopNode();
     } else if (libp2pOrBundle && typeof libp2pOrBundle.stop === 'function') {
       await libp2pOrBundle.stop();
     }

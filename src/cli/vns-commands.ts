@@ -156,7 +156,7 @@ export function createVNSCommand(): Command {
           expires: now + VNS_CONFIG.EXPIRATION_PERIOD,
           nonce,
           signature: '',
-          publicKey: identity.publicKeyPem
+          publicKey: identity.publicKey
         };
 
         // Sign registration
@@ -168,7 +168,8 @@ export function createVNSCommand(): Command {
           expires: registration.expires,
           nonce: registration.nonce
         });
-        registration.signature = signData(identity.signingKeyPem, dataToSign);
+        const signatureBytes = await signData(new TextEncoder().encode(dataToSign), identity.privateKey || '');
+        registration.signature = Buffer.from(signatureBytes).toString('hex');
 
         console.log(chalk.blue('📝 Registration prepared:'));
         console.log(chalk.gray(`   Timestamp: ${new Date(registration.timestamp).toISOString()}`));
@@ -216,10 +217,10 @@ export function createVNSCommand(): Command {
         // Query API
         const fetch = (await import('node-fetch')).default;
         const url = `${opts.api}/api/vns/resolve/${encodeURIComponent(name)}`;
-        
+
         console.log(chalk.gray(`Querying: ${url}...`));
         const response = await fetch(url);
-        
+
         if (!response.ok) {
           console.log(chalk.red(`❌ HTTP ${response.status}: ${response.statusText}\n`));
           process.exit(1);
@@ -279,12 +280,13 @@ export function createVNSCommand(): Command {
 
         // Sign transfer
         const dataToSign = JSON.stringify({ name, newOwner, timestamp: Date.now() });
-        const signature = signData(identity.signingKeyPem, dataToSign);
+        const signatureBytes = await signData(new TextEncoder().encode(dataToSign), identity.privateKey || '');
+        const signature = Buffer.from(signatureBytes).toString('hex');
 
         // Submit transfer
         const fetch = (await import('node-fetch')).default;
         const url = `${opts.api}/api/vns/transfer/${encodeURIComponent(name)}`;
-        
+
         console.log(chalk.gray(`Submitting transfer to: ${url}...`));
         const response = await fetch(url, {
           method: 'POST',
@@ -326,10 +328,10 @@ export function createVNSCommand(): Command {
 
         const fetch = (await import('node-fetch')).default;
         const url = `${opts.api}/api/vns/query?owner=${encodeURIComponent(owner)}`;
-        
+
         console.log(chalk.gray(`Querying: ${url}...`));
         const response = await fetch(url);
-        
+
         if (!response.ok) {
           console.log(chalk.red(`❌ HTTP ${response.status}: ${response.statusText}\n`));
           process.exit(1);

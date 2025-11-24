@@ -24,7 +24,7 @@ async function main() {
     if (raw) {
       try {
         const obj = JSON.parse(Buffer.from(raw).toString('utf8'));
-        const ok = verifySignature(obj.pubkey, JSON.stringify(obj.payload), obj.signature);
+        const ok = await verifySignature(new TextEncoder().encode(JSON.stringify(obj.payload)), new TextEncoder().encode(obj.signature), obj.pubkey);
         console.log('Signature valid?', ok);
       } catch (e) { console.warn('Failed to verify entry signature', e); }
     }
