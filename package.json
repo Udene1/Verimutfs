@@ -1,6 +1,6 @@
 {
   "name": "verimutfs-node",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "type": "module",
   "description": "VerimutFS P2P Node - Join the Verimut decentralized skill-sharing network",
   "main": "dist/cli.js",
