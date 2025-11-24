@@ -1,17 +1,16 @@
 /**
  * HTTP-based P2P Communication Module
  * 
- * Provides HTTP-based delta propagation as a complement to libp2p pubsub.
- * This module enables multi-node VNS sync when libp2p gossipsub is unavailable.
+ * Provides HTTP-based delta propagation for multi-node VNS sync.
+ * This module enables peer discovery and VNS synchronization via HTTP.
  * 
  * Architecture:
  * - Integrates with VerimutSync via standard interface
  * - Uses HTTP POST to push deltas to bootstrap peers
+ * - Uses HTTP GET to pull VNS entries from bootstrap peers
  * - Receives deltas via /api/vns/push-delta endpoint
  * - Maintains same security model (Ed25519, PoW, LWW)
  */
-
-import type { PeerId } from '@libp2p/interface';
 
 export interface HTTPP2PConfig {
   /**
@@ -19,12 +18,12 @@ export interface HTTPP2PConfig {
    * Example: ['http://node1.example.com:3001', 'http://node2.example.com:3001']
    */
   bootstrapPeers: string[];
-  
+
   /**
-   * Local peer ID for identifying the source of deltas
+   * Local peer ID for identifying the source of deltas (optional)
    */
-  peerId?: PeerId;
-  
+  peerId?: any;
+
   /**
    * Enable verbose logging
    */
@@ -45,14 +44,14 @@ export interface VNSDelta {
  */
 export class HTTPP2P {
   private bootstrapPeers: string[];
-  private peerId?: PeerId;
+  private peerId?: any;
   private verbose: boolean;
 
   constructor(config: HTTPP2PConfig) {
     this.bootstrapPeers = config.bootstrapPeers;
     this.peerId = config.peerId;
     this.verbose = config.verbose ?? false;
-    
+
     if (this.verbose) {
       console.log(`[HTTPP2P] Initialized with ${this.bootstrapPeers.length} bootstrap peer(s)`);
     }
@@ -63,7 +62,7 @@ export class HTTPP2P {
    */
   async pushDelta(delta: VNSDelta): Promise<{ success: boolean; results: Array<{ peer: string; success: boolean; error?: string }> }> {
     const results: Array<{ peer: string; success: boolean; error?: string }> = [];
-    
+
     if (this.bootstrapPeers.length === 0) {
       if (this.verbose) {
         console.warn('[HTTPP2P] No bootstrap peers configured, skipping HTTP push');
@@ -113,7 +112,7 @@ export class HTTPP2P {
 
     const pushResults = await Promise.allSettled(pushPromises);
     const successCount = pushResults.filter(r => r.status === 'fulfilled' && r.value).length;
-    
+
     if (this.verbose) {
       console.log(`[HTTPP2P] Push completed: ${successCount}/${this.bootstrapPeers.length} successful`);
     }
@@ -147,6 +146,139 @@ export class HTTPP2P {
   isAvailable(): boolean {
     return this.bootstrapPeers.length > 0;
   }
+
+  /**
+   * Sync VNS entries from a bootstrap node
+   * Pulls all VNS entries and applies them locally
+   */
+  async syncVNSFromBootstrap(bootstrapUrl: string, vnsStore: any): Promise<{ success: boolean; entriesSync: number; error?: string }> {
+    try {
+      if (this.verbose) {
+        console.log(`[HTTPP2P] Syncing VNS from ${bootstrapUrl}...`);
+      }
+
+      const fetch = (await import('node-fetch')).default;
+
+      // Try to get VNS peers endpoint
+      const response = await fetch(`${bootstrapUrl}/api/vns/peers`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data: any = await response.json();
+
+      if (!data.success || !data.peers) {
+        throw new Error('Invalid response format');
+      }
+
+      let syncedCount = 0;
+
+      // Apply each VNS entry as a delta
+      for (const peer of data.peers) {
+        try {
+          // Create a delta from the peer entry
+          const delta: VNSDelta = {
+            type: 'register',
+            entry: {
+              name: peer.vfsName,
+              registration: {
+                name: peer.vfsName,
+                owner: peer.publicKey || 'unknown',
+                records: [
+                  { type: 'IP', value: peer.ip },
+                  { type: 'PORT', value: peer.port.toString() },
+                  { type: 'ROLE', value: peer.role || 'peer' }
+                ],
+                nonce: 0,
+                timestamp: peer.timestamp,
+                expires: peer.timestamp + (365 * 24 * 60 * 60 * 1000), // 1 year
+                signature: '',
+                publicKey: peer.publicKey || ''
+              },
+              cid: '',
+              lastModified: peer.timestamp,
+              version: 1
+            },
+            peerId: 'bootstrap-sync',
+            timestamp: Date.now(),
+            fromPeer: bootstrapUrl
+          };
+
+          // Apply delta to local VNS store
+          await vnsStore.applyDelta(delta);
+          syncedCount++;
+        } catch (e: any) {
+          if (this.verbose) {
+            console.warn(`[HTTPP2P] Failed to sync entry ${peer.vfsName}:`, e.message);
+          }
+        }
+      }
+
+      if (this.verbose) {
+        console.log(`[HTTPP2P] ✓ Synced ${syncedCount} VNS entries from ${bootstrapUrl}`);
+      }
+
+      return { success: true, entriesSync: syncedCount };
+    } catch (e: any) {
+      console.error(`[HTTPP2P] ✗ Failed to sync from ${bootstrapUrl}:`, e.message);
+      return { success: false, entriesSync: 0, error: e.message };
+    }
+  }
+
+  /**
+   * Sync VNS from all bootstrap peers
+   */
+  async syncFromAllBootstraps(vnsStore: any): Promise<void> {
+    if (this.bootstrapPeers.length === 0) {
+      if (this.verbose) {
+        console.log('[HTTPP2P] No bootstrap peers to sync from');
+      }
+      return;
+    }
+
+    if (this.verbose) {
+      console.log(`[HTTPP2P] Starting VNS sync from ${this.bootstrapPeers.length} bootstrap(s)...`);
+    }
+
+    const syncPromises = this.bootstrapPeers.map(url =>
+      this.syncVNSFromBootstrap(url, vnsStore)
+    );
+
+    const results = await Promise.allSettled(syncPromises);
+    const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+
+    if (this.verbose) {
+      console.log(`[HTTPP2P] VNS sync complete: ${successCount}/${this.bootstrapPeers.length} successful`);
+    }
+  }
+
+  /**
+   * Start periodic VNS sync from bootstrap nodes
+   * @param vnsStore VNS namespace store instance
+   * @param intervalMs Sync interval in milliseconds (default: 60000 = 1 minute)
+   */
+  startPeriodicSync(vnsStore: any, intervalMs: number = 60000): NodeJS.Timeout {
+    if (this.verbose) {
+      console.log(`[HTTPP2P] Starting periodic VNS sync (interval: ${intervalMs}ms)`);
+    }
+
+    // Initial sync
+    this.syncFromAllBootstraps(vnsStore).catch(e => {
+      console.error('[HTTPP2P] Initial sync failed:', e);
+    });
+
+    // Periodic sync
+    return setInterval(() => {
+      this.syncFromAllBootstraps(vnsStore).catch(e => {
+        console.error('[HTTPP2P] Periodic sync failed:', e);
+      });
+    }, intervalMs);
+  }
 }
 
 /**
@@ -162,7 +294,7 @@ export function createHTTPP2P(config: HTTPP2PConfig): HTTPP2P {
  */
 export function parseBootstrapPeers(envVar: string | undefined): string[] {
   if (!envVar) return [];
-  
+
   return envVar
     .split(',')
     .map(url => url.trim())

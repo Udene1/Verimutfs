@@ -45,7 +45,7 @@ export class VerimutSync {
     this.directFetches = 0;
     this.totalFetches = 0;
     this.vnsStore = null;
-    
+
     // HTTP P2P will be initialized after bootstrap discovery
     // This is now deferred to start() so we can use async bootstrap discovery
     this.httpP2P = null;
@@ -56,13 +56,13 @@ export class VerimutSync {
    */
   registerVNSStore(vnsStore: any): void {
     this.vnsStore = vnsStore;
-    
+
     // Set up bidirectional sync: VNS store can publish deltas via this sync
     const peerId = this.libp2p?.peerId?.toString?.() || 'unknown';
     vnsStore.setSyncCallback(async (delta: any) => {
       await this.publishVNSDelta(delta);
     }, peerId);
-    
+
     console.log('[VerimutSync] VNS store registered for delta propagation');
   }
 
@@ -73,13 +73,13 @@ export class VerimutSync {
     // Initialize HTTP P2P with bootstrap discovery
     try {
       const { expandBootstrapPeers, registerAsBootstrap } = await import('./networking/bootstrap-discovery.js');
-      
+
       const envVar = process.env.HTTP_BOOTSTRAP_PEERS || '';
       const bootstrapPeers = await expandBootstrapPeers(envVar, {
         seedBootstraps: ['http://102.90.98.234:3001'], // Genesis bootstrap node
         verbose: process.env.VERBOSE === 'true'
       });
-      
+
       if (bootstrapPeers.length > 0) {
         const { createHTTPP2P } = await import('./networking/http-p2p.js');
         this.httpP2P = createHTTPP2P({
@@ -88,8 +88,13 @@ export class VerimutSync {
           verbose: process.env.VERBOSE === 'true'
         });
         console.log(`[VerimutSync] HTTP P2P initialized with ${bootstrapPeers.length} bootstrap peer(s)`);
+
+        // Start periodic VNS sync from bootstrap nodes
+        if (this.vnsStore) {
+          this.httpP2P.startPeriodicSync(this.vnsStore, 60000); // Sync every minute
+        }
       }
-      
+
       // Self-register as bootstrap if BOOTSTRAP_PUBLIC_URL is set
       const publicUrl = process.env.BOOTSTRAP_PUBLIC_URL;
       if (publicUrl) {
@@ -113,6 +118,11 @@ export class VerimutSync {
           verbose: process.env.VERBOSE === 'true'
         });
         console.log(`[VerimutSync] HTTP P2P initialized with ${bootstrapPeers.length} bootstrap peer(s) (fallback)`);
+
+        // Start periodic VNS sync from bootstrap nodes
+        if (this.vnsStore) {
+          this.httpP2P.startPeriodicSync(this.vnsStore, 60000); // Sync every minute
+        }
       }
     }
 
@@ -155,7 +165,7 @@ export class VerimutSync {
     // register block request handler
     if (this.libp2p && typeof this.libp2p.handle === 'function') {
       try {
-  await this.libp2p.handle('/verimut/block/1.0.0', async ({ stream, connection }: any) => {
+        await this.libp2p.handle('/verimut/block/1.0.0', async ({ stream, connection }: any) => {
           // read request
           const chunks: Uint8Array[] = [];
           for await (const c of stream.source) {
@@ -240,10 +250,10 @@ export class VerimutSync {
 
   async publishHeads(heads: string[]) {
     if (!this.pubsub || typeof this.pubsub.publish !== 'function') return;
-    const addrs = (typeof this.libp2p?.getMultiaddrs === 'function') ? this.libp2p.getMultiaddrs().map((m:any) => m.toString()) : [];
+    const addrs = (typeof this.libp2p?.getMultiaddrs === 'function') ? this.libp2p.getMultiaddrs().map((m: any) => m.toString()) : [];
     // demo-only: include raw blocks (base64) for the heads so peers can apply deterministically
     // gated by DEMO_INLINE_BLOCKS env var so production won't leak raw blocks accidentally.
-    const blocks: Record<string,string> = {};
+    const blocks: Record<string, string> = {};
     const enableInline = (typeof process !== 'undefined') && (String(process.env.DEMO_INLINE_BLOCKS) === '1' || String(process.env.DEMO_INLINE_BLOCKS).toLowerCase() === 'true');
     if (enableInline) {
       try {
@@ -292,7 +302,7 @@ export class VerimutSync {
         console.warn('VerimutSync: pubsub message is not JSON, ignoring; raw=', Buffer.from(dataBuf).toString('hex'));
         return;
       }
-  let remotePeer = obj.peerId;
+      let remotePeer = obj.peerId;
       const heads: string[] = obj.heads || [];
       // If heads are missing/empty, emit a compact debug dump of the raw message
       if ((!obj.heads || !Array.isArray(obj.heads) || obj.heads.length === 0)) {
@@ -314,8 +324,8 @@ export class VerimutSync {
               const s = (typeof maybe === 'string') ? maybe : (Buffer.isBuffer(maybe) ? maybe.toString() : String(maybe));
               const fallbackPeers = s.split(',').map((p: any) => String(p).trim()).filter(Boolean);
               if (fallbackPeers.length) {
-                    remotePeer = fallbackPeers[0];
-                    console.log('[Sync] Fallback DHT peer chosen for anonymous heads:', remotePeer);
+                remotePeer = fallbackPeers[0];
+                console.log('[Sync] Fallback DHT peer chosen for anonymous heads:', remotePeer);
               } else {
                 console.log('[Sync] DHT returned no peers for topic fallback');
               }
@@ -328,7 +338,7 @@ export class VerimutSync {
       }
       if (remotePeer === this.libp2p?.peerId?.toString?.()) return; // ignore our own announcements
 
-  console.log(`VerimutSync: heard heads from ${remotePeer}:`, heads);
+      console.log(`VerimutSync: heard heads from ${remotePeer}:`, heads);
 
       // prefer multiaddrs provided by announcer when dialing
       const preferredAddr = (obj.addrs && obj.addrs.length) ? obj.addrs[0] : null;
@@ -344,9 +354,9 @@ export class VerimutSync {
               if (storedCid !== cid) {
                 console.warn(`VerimutSync: announced inline block CID mismatch: expected ${cid} got ${storedCid}`);
               } else {
-                  const applied = await this.log.applyCid(cid);
-                  if (applied) console.log(`VerimutSync: applied block ${cid} (inline) from ${remotePeer}`);
-                  else console.warn(`VerimutSync: inline block ${cid} from ${remotePeer} failed verification`);
+                const applied = await this.log.applyCid(cid);
+                if (applied) console.log(`VerimutSync: applied block ${cid} (inline) from ${remotePeer}`);
+                else console.warn(`VerimutSync: inline block ${cid} from ${remotePeer} failed verification`);
                 continue;
               }
             } catch (e) {
@@ -364,7 +374,7 @@ export class VerimutSync {
 
           // store the block and verify/apply via the log
           const storedCid = await this.blockstore.put(block);
-            if (storedCid !== cid) {
+          if (storedCid !== cid) {
             console.warn(`VerimutSync: fetched block CID mismatch: expected ${cid} got ${storedCid}`);
             continue;
           }
@@ -395,10 +405,10 @@ export class VerimutSync {
         try { this.totalFetches++; this.directFetches++; } catch (e) { /* ignore */ }
         return block as Uint8Array;
       } catch (e) {
-  lastErr = e;
-  const backoff = 200 * Math.pow(2, i);
-  const emsg = (e as any)?.message ?? String(e);
-  console.warn(`VerimutSync: fetch attempt ${i + 1} for ${cid} failed: ${emsg}. retrying in ${backoff}ms`);
+        lastErr = e;
+        const backoff = 200 * Math.pow(2, i);
+        const emsg = (e as any)?.message ?? String(e);
+        console.warn(`VerimutSync: fetch attempt ${i + 1} for ${cid} failed: ${emsg}. retrying in ${backoff}ms`);
         await new Promise((res) => setTimeout(res, backoff));
       }
     }
@@ -464,7 +474,7 @@ export class VerimutSync {
   // single fetch attempt (no timeout/retry)
   async _fetchBlock(remotePeer: string, cid: string): Promise<Uint8Array> {
     // We'll attempt several dialing strategies in order, logging details so failures are actionable.
-    const attempts: Array<{desc: string, target: string}> = [];
+    const attempts: Array<{ desc: string, target: string }> = [];
     attempts.push({ desc: 'as-provided', target: remotePeer });
     // if remotePeer looks like a multiaddr with /p2p/<peerId>, add an attempt using the peerId only
     const m = /\/p2p\/([^/]+)$/.exec(String(remotePeer));
@@ -643,7 +653,7 @@ export class VerimutSync {
         console.error('[VerimutSync] Failed to publish VNS delta via pubsub:', e);
       }
     }
-    
+
     // Skip shim and go straight to HTTP P2P if shim is detected
     if (isShim) {
       console.log('[VerimutSync] Detected local pubsub shim, using HTTP P2P for multi-node sync');

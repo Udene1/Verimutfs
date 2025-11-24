@@ -1,0 +1,36 @@
+# Node runtime
+node_modules/
+dist/
+*.log
+
+# Runtime data
+verimut-data/
+verimut-repos/
+peer-key.json
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary
+temp/
+tmp/
+*.tmp
+
+# Build
+build/
+out/
